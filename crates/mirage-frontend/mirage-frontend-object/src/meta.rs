@@ -11,6 +11,10 @@ impl Flags {
             inner
         }
     }
+
+    pub fn push(&mut self, flag: Flag) {
+        self.inner.push(flag);
+    }
 }
 
 impl Stringify for Flags {

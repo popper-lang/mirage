@@ -1,6 +1,6 @@
 use crate::stringify::Stringify;
 use super::value::Value;
-use crate::{MirageObject, RegisterValue};
+use crate::{IntValue, MirageObject, MirageValueEnum, RegisterValue};
 use crate::util::List;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,8 +28,9 @@ pub enum Command {
     Get(RegisterValue, usize),
     Const(MirageObject),
     Free(Vec<RegisterValue>),
+    Ret(Value),
     Jump(String),
-    Jeq(String, RegisterValue, Value),
+    Jeq(String, Value, Value),
     IncrInt8(RegisterValue),
     IncrInt16(RegisterValue),
     IncrInt32(RegisterValue),
@@ -52,7 +53,7 @@ impl Stringify for Command {
             Command::Get(mem, index) => format!("get {}, {}", mem.print_to_string(), index),
             Command::Free(mems) => format!("free {}", mems.iter().map(|x| x.print_to_string()).collect::<Vec<String>>().join(", ")),
             Command::Jump(name) => format!("jump {}", name),
-            Command::Jeq(name, mem, val) => format!("jeq {}, {}, {}", name, mem.print_to_string(), val.to_string()),
+            Command::Jeq(name, mem, val) => format!("jeq {}, {}, {}", name, mem.to_string(), val.to_string()),
             Command::IncrInt8(mem) => format!("incr_i8 {}", mem.print_to_string()),
             Command::IncrInt16(mem) => format!("incr_i16 {}", mem.print_to_string()),
             Command::IncrInt32(mem) => format!("incr_i32 {}", mem.print_to_string()),
@@ -66,7 +67,62 @@ impl Stringify for Command {
             Command::AddFloat32(val1, val2) => format!("add_f32 {}, {}", val1.to_string(), val2.to_string()),
             Command::AddFloat64(val1, val2) => format!("add_f64 {}, {}", val1.to_string(), val2.to_string()),
             Command::Const(val) => val.to_string(),
+            Command::Ret(val) => format!("ret {}", val.to_string())
 
         }
     }
+}
+
+pub fn add(lhs: IntValue, rhs: IntValue) -> Command {
+    assert_eq!(lhs.get_max_bits(), rhs.get_max_bits());
+
+    match lhs.get_max_bits() {
+        8 => Command::AddInt8(
+            lhs.to_mirage_value().try_into().unwrap(),
+            lhs.to_mirage_value().try_into().unwrap()
+        ),
+        16 => Command::AddInt16(
+            lhs.to_mirage_value().try_into().unwrap(),
+            lhs.to_mirage_value().try_into().unwrap()
+        ),
+        32 => Command::AddInt32(
+            lhs.to_mirage_value().try_into().unwrap(),
+            lhs.to_mirage_value().try_into().unwrap()
+        ),
+        64 => Command::AddInt64(
+            lhs.to_mirage_value().try_into().unwrap(),
+            lhs.to_mirage_value().try_into().unwrap()
+        ),
+        _ => panic!("Invalid bit size")
+    }
+}
+
+pub fn incr(val: RegisterValue) -> Command {
+    let ty = val.get_type();
+    if ty.is_float() {
+        match ty.get_max_bits() {
+            32 => Command::IncrFloat32(val),
+            64 => Command::IncrFloat64(val),
+            _ => panic!("Invalid bit size")
+        }
+    } else {
+        match ty.get_max_bits() {
+            8 => Command::IncrInt8(val),
+            16 => Command::IncrInt16(val),
+            32 => Command::IncrInt32(val),
+            64 => Command::IncrInt64(val),
+            _ => panic!("Invalid bit size")
+        }
+    }
+}
+
+pub fn jump(name: &str) -> Command {
+    Command::Jump(name.to_string())
+}
+
+pub fn jeq(name: &str, lhs: MirageValueEnum, rhs: MirageValueEnum) -> Command {
+    assert_eq!(lhs.get_type(), rhs.get_type());
+    let lhs = lhs.try_into().unwrap();
+    let rhs = rhs.try_into().unwrap();
+    Command::Jeq(name.to_string(), lhs, rhs)
 }

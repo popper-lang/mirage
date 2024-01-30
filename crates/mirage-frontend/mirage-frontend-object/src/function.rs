@@ -70,6 +70,38 @@ impl FunctionValue {
         )))
     }
 
+    pub fn len_labels(&self) -> usize {
+        self.labels.len()
+    }
+
+    pub fn get_label(&self, name: &str) -> Option<&Label> {
+        self.labels.iter().find(|l| l.name == name)
+    }
+
+    pub fn get_nth_label(&self, n: usize) -> Option<&Label> {
+        if n >= self.labels.len() {
+            return None;
+        }
+
+        Some(&self.labels[n])
+    }
+
+    pub fn get_nth_label_mut(&mut self, n: usize) -> Option<&mut Label> {
+        if n >= self.labels.len() {
+            return None;
+        }
+
+        Some(&mut self.labels[n])
+    }
+
+    pub fn get_labels(&self) -> &Vec<Label> {
+        &self.labels
+    }
+
+    pub fn get_labels_mut(&mut self) -> &mut Vec<Label> {
+        &mut self.labels
+    }
+
     pub fn add_label(&mut self, label: Label) {
         self.labels.push(label);
     }

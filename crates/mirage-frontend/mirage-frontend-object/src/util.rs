@@ -1,18 +1,34 @@
 use crate::stringify::Stringify;
-use std::fmt::Debug;
+use std::{fmt::Debug, slice::Iter};
 
 
 /// A list of items.
 /// Syntax: { items... }
-#[derive(Debug, Clone)]
-pub struct List<T: Stringify + Debug + Clone> {
-    inner: Vec<T>
+#[derive(Clone, Debug)]
+pub struct List<T>
+where
+    T: Stringify + Debug + Clone,
+{
+    inner: Vec<T>,
 }
 
-impl<T: Stringify + Debug + Clone> List<T> {
-    pub fn new() -> Self {
+
+
+
+impl<T> List<T>
+where
+    T: Stringify + Debug + Clone
+{
+    pub fn from_vec(vec: Vec<T>) -> Self {
         Self {
-            inner: Vec::new()
+            inner: vec
+        }
+    }
+
+    pub fn new() -> Self {
+        let vec = Vec::new();
+        Self {
+            inner: vec
         }
     }
 
@@ -26,6 +42,20 @@ impl<T: Stringify + Debug + Clone> List<T> {
 
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    pub fn iter(&self) -> Iter<T> {
+        self.inner.iter()
+    }
+}
+
+impl<T: Stringify + Debug + Clone> Iterator for List<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner
+            .iter()
+            .next()
+            .cloned()
     }
 }
 

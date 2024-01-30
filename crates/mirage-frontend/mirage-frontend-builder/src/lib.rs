@@ -1,6 +1,11 @@
 #[cfg(test)]
 mod test;
 
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Index;
+use std::ops::IndexMut;
+
 use mirage_frontend_object::label::{Command, Label, LabelBodyInstr, Value};
 use mirage_frontend_object::meta::Flags;
 use mirage_frontend_object::statements::{External, Global, ModuleDecl, Statement, Target};
@@ -111,12 +116,16 @@ impl BasicBlock {
         self.inner.build_copy(global_name)
     }
 
-    pub fn build_const(&mut self, val: MirageValueEnum, ret: bool) -> BuilderResult<MirageValueEnum> {
-        self.inner.build_const(val, ret)
+    pub fn build_const(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_const(val)
     }
 
-    pub fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue, ret: bool) -> BuilderResult<MirageValueEnum> {
-        self.inner.build_int_add(lhs, rhs, ret)
+    pub fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_int_add(lhs, rhs)
+    }
+
+    pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
+        self.inner.build_ret(val)
     }
 
 
@@ -164,18 +173,12 @@ impl BasicBlockBuilder {
         Ok(memory.to_mirage_value())
     }
 
-    pub fn build_const(&mut self, val: MirageValueEnum, ret: bool) -> BuilderResult<MirageValueEnum> {
+    pub fn build_const(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         if let Some(c) = val.expect_const_value() {
 
-            let memory;
-            if ret {
-                memory = RegisterValue::new(0, RegisterType::Ret, c.get_type());
-                self.is_return = true;
-            } else {
-                memory = RegisterValue::new(self.index_r, RegisterType::Variable, c.get_type());
-                self.index_r += 1;
-            }
+            let memory = RegisterValue::new(self.index_r, RegisterType::Register, c.get_type());
+            self.index_r += 1;
             let const_value = MirageObject::from(c);
             self.block.body.push(LabelBodyInstr::Assign(
                 memory.clone(),
@@ -189,7 +192,7 @@ impl BasicBlockBuilder {
         }
     }
 
-    pub fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue, ret: bool) -> BuilderResult<MirageValueEnum> {
+    fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         let ty = lhs.to_mirage_value().get_type();
 
@@ -202,15 +205,7 @@ impl BasicBlockBuilder {
             .to_mirage_value()
             .try_into()
             .map_err(|e| BuilderError::InternalError(e))?;
-        let memory;
-        if ret {
-            memory = RegisterValue::new(0, RegisterType::Ret, ty);
-            self.is_return = true;
-        } else {
-            memory = RegisterValue::new(self.index_r, RegisterType::Variable, ty);
-            self.index_r += 1;
-        }
-
+        let memory= RegisterValue::new(self.index_r, RegisterType::Register, ty);
         self.index_r += 1;
 
         if lhs.get_max_bits() != rhs.get_max_bits() {
@@ -254,6 +249,17 @@ impl BasicBlockBuilder {
         Ok(memory.to_mirage_value())
     }
 
+    pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
+        if self.is_return {
+            return Err(BuilderError::ReturnIsDefined);
+        }
+        self.is_return = true;
+        let value = val.try_into().map_err(|e| BuilderError::InternalError(e))?;
+        self.block.body.push(LabelBodyInstr::Command(
+            Command::Ret(value)
+        ));
+        Ok(())
+    }
 
     fn check_return(&mut self) -> BuilderResult<()> {
         if self.is_return {

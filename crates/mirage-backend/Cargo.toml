@@ -1,0 +1,17 @@
+[package]
+name = "mirage_backend"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [
+    "mirage-backend-asm",
+    "mirage-backend-codegen",
+    "mirage-backend-opti",
+]
+
+[dependencies]
+mirage_frontend = { path = "../mirage-frontend" }
+mirage_backend_codegen = { path = "mirage-backend-codegen" }
+mirage_backend_asm = { path = "mirage-backend-asm" }
+mirage_backend_opti = { path = "mirage-backend-opti" }

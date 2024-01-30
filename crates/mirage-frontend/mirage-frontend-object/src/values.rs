@@ -78,6 +78,13 @@ impl MirageValueEnum {
         }
     }
 
+    pub fn expect_register_value(&self) -> Option<RegisterValue> {
+        match self {
+            MirageValueEnum::Register(e) => Some(*e),
+            _ => None
+        }
+    }
+
     pub fn expect_int_value(&self) -> Option<IntValue> {
         match self {
             MirageValueEnum::Int8(v) => Some(IntValue::Int8(*v)),
@@ -247,11 +254,7 @@ impl RegisterValue {
     }
 
     pub fn print_to_string(&self) -> String {
-        if self.register_type == RegisterType::Ret {
-            "ret".to_string()
-        } else {
-            format!("{}{}", self.register_type.print_to_string(), self.index)
-        }
+        format!("{}{}", self.register_type.print_to_string(), self.index)
     }
 
     pub fn to_mirage_value(&self) -> MirageValueEnum {
@@ -269,8 +272,7 @@ impl From<RegisterValue> for MirageValueEnum {
 pub enum RegisterType {
     Register,
     Variable,
-    Argument,
-    Ret
+    Argument
 }
 
 impl RegisterType {
@@ -279,7 +281,6 @@ impl RegisterType {
             RegisterType::Register => "r",
             RegisterType::Variable => "v",
             RegisterType::Argument => "arg",
-            RegisterType::Ret => "ret"
         }.to_string()
     }
 }
@@ -289,7 +290,6 @@ impl RegisterType {
 pub enum RegisterUserType {
     Register,
     Variable,
-    Ret
 }
 
 impl Into<RegisterType> for RegisterUserType {
@@ -297,7 +297,38 @@ impl Into<RegisterType> for RegisterUserType {
         match self {
             RegisterUserType::Register => RegisterType::Register,
             RegisterUserType::Variable => RegisterType::Variable,
-            RegisterUserType::Ret => RegisterType::Ret
         }
     }
+}
+
+impl TryFrom<&str> for RegisterType {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "r" => Ok(RegisterType::Register),
+            "v" => Ok(RegisterType::Variable),
+            "arg" => Ok(RegisterType::Argument),
+            _ => Err(format!("Cannot convert {} into RegisterType", value))
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! register {
+    (@$n:ident r $i:literal) => {
+        $crate::RegisterValue::new($i, $crate::RegisterType::Register, $crate::MirageTypeEnum::from_str(
+            stringify!($n)
+        ).unwrap())
+    };
+    (@$n:ident v $i:literal) => {
+        $crate::RegisterValue::new($i, $crate::RegisterType::Variable, $crate::MirageTypeEnum::from_str(
+            stringify!($n)
+        ).unwrap())
+    };
+    (@$n:ident arg $i:literal) => {
+        $crate::RegisterValue::new($i, $crate::RegisterType::Argument, $crate::MirageTypeEnum::from_str(
+            stringify!($n)
+        ).unwrap())
+    };
 }

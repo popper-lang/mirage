@@ -66,6 +66,22 @@ impl MirageTypeEnum {
         }
     }
 
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "int8" => Some(Self::Int8(Int8Type::new())),
+            "int16" => Some(Self::Int16(Int16Type::new())),
+            "int32" => Some(Self::Int32(Int32Type::new())),
+            "int64" => Some(Self::Int64(Int64Type::new())),
+            "uint8" => Some(Self::UInt8(UInt8Type::new())),
+            "uint16" => Some(Self::UInt16(UInt16Type::new())),
+            "uint32" => Some(Self::UInt32(UInt32Type::new())),
+            "uint64" => Some(Self::UInt64(UInt64Type::new())),
+            "float32" => Some(Self::Float32(Float32Type::new())),
+            "float64" => Some(Self::Float64(Float64Type::new())),
+            _ => None
+        }
+    }
+
     pub fn is_int(&self) -> bool {
         match self {
             MirageTypeEnum::Int8(_) => true,
@@ -73,6 +89,39 @@ impl MirageTypeEnum {
             MirageTypeEnum::Int32(_) => true,
             MirageTypeEnum::Int64(_) => true,
             _ => false
+        }
+    }
+
+    pub fn is_uint(&self) -> bool {
+        match self {
+            MirageTypeEnum::UInt8(_) => true,
+            MirageTypeEnum::UInt16(_) => true,
+            MirageTypeEnum::UInt32(_) => true,
+            MirageTypeEnum::UInt64(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self {
+            MirageTypeEnum::Float32(_) => true,
+            MirageTypeEnum::Float64(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn get_max_bits(&self) -> usize {
+        match self {
+            MirageTypeEnum::Int8(_) => 8,
+            MirageTypeEnum::Int16(_) => 16,
+            MirageTypeEnum::Int32(_) => 32,
+            MirageTypeEnum::Int64(_) => 64,
+            MirageTypeEnum::UInt8(_) => 8,
+            MirageTypeEnum::UInt16(_) => 16,
+            MirageTypeEnum::UInt32(_) => 32,
+            MirageTypeEnum::UInt64(_) => 64,
+            MirageTypeEnum::Float32(_) => 32,
+            MirageTypeEnum::Float64(_) => 64,
         }
     }
 
