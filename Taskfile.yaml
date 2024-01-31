@@ -28,3 +28,16 @@ tasks:
     cmds:
       - git add .
       - git commit -m {{.CLI_ARGS}}
+
+  pull:
+    cmds:
+      - git pull origin main
+
+  push:
+    cmds:
+      - git push origin main
+  ignore:
+    cmds:
+      - git rm -r --cached {{.CLI_ARGS}}
+      - echo {{.CLI_ARGS}} >> .gitignore
+      - git commit -m "Removed {{.CLI_ARGS}} from git repository"
