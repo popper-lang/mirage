@@ -19,11 +19,21 @@ tasks:
     cmds:
       - cargo build --manifest-path crates/mirage-backend/Cargo.toml --release
 
+  check:
+    cmds:
+      - cargo check
+
+  clippy:
+    cmds:
+      - cargo clippy
+
+
   install:
     cmds:
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
       - rustup install nightly
       - rustup default nightly
+      - task build
 
   commit:
     cmds:
@@ -36,7 +46,7 @@ tasks:
 
   push:
     cmds:
-      - git push origin main
+      - git push origin main {{.CLI_ARGS}}
 
   push_force:
     cmds:
@@ -46,11 +56,7 @@ tasks:
     cmds:
       - git rm -r --cached {{.CLI_ARGS}}
       - echo {{.CLI_ARGS}} >> .gitignore
-      - git commit -m "Removed {{.CLI_ARGS}} from git repository"
-
-  check:
-    cmds:
-      - cargo check
+      - task commit -- "Removed {{.CLI_ARGS}} from git repository"
 
   fmt:
     cmds:
