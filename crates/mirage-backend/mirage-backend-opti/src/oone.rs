@@ -18,16 +18,20 @@ pub struct OptiOne {
     stmts: Vec<Statement>,
     register_const: HashMap<usize, MirageValueEnum>,
     register_def_index: HashMap<usize, usize>,
+    index_label: usize,
+    index_stmt: usize,
     global_const: HashMap<String, MirageValueEnum>
 }
 
 impl OptiOne {
-    pub fn new() -> Self {
+    pub fn new(stmts: Vec<Statement>) -> Self {
         Self {
-            stmts: Vec::new(),
+            stmts,
             register_const: HashMap::new(),
             register_def_index: HashMap::new(),
-            global_const: HashMap::new()
+            global_const: HashMap::new(),
+            index_label: 0,
+            index_stmt: 0
         }
     }
 
@@ -39,14 +43,19 @@ impl OptiOne {
                 )
             ) => {
                     if let MirageValueEnum::Register(r) = obj.get_value() {
-                    if let Some(v) = self.register_const.get(&r.index) {
-                        return LabelBodyInstr::Command(
-                            Command::Const(
-                                MirageObject::from(*v)
+                        if let Some(v) = self.register_const.get(&r.index) {
+                            let index = *self.register_def_index.get(&r.index).unwrap();
+                            if let Statement::Function(ref mut func) = &mut self.stmts[self.index_stmt] {
+                                let label = func.get_nth_label_mut(index).unwrap();
+                                label.body.remove(index);
+                            }
+                            return LabelBodyInstr::Command(
+                                Command::Const(
+                                    MirageObject::from(*v)
+                                )
                             )
-                        )
+                        }
                     }
-                }
             },
             _ => {}
         }
@@ -63,6 +72,11 @@ impl OptiOne {
     fn optimize_mirage_value(&mut self, val: MirageValueEnum) -> MirageValueEnum {
         if let MirageValueEnum::Register(r) = val {
             if let Some(v) = self.register_const.get(&r.index) {
+                let index = *self.register_def_index.get(&r.index).unwrap();
+                if let Statement::Function(ref mut func) = &mut self.stmts[self.index_stmt] {
+                    let label = func.get_nth_label_mut(index).unwrap();
+                    label.body.remove(index);
+                }
                 *v
             } else {
                 val
@@ -131,7 +145,9 @@ impl GlobalOptimizer for OptiOne {
         func
             .get_labels_mut()
             .iter_mut()
-            .for_each(|x| {
+            .enumerate()
+            .for_each(|(index, x)| {
+                self.index_label = index;
                 x.body = x.body
                     .iter()
                     .map(|x| self.optimize_label_instr(x.clone()))
@@ -147,6 +163,7 @@ impl GlobalOptimizer for OptiOne {
     fn optimize_label_instr(&mut self, instr: LabelBodyInstr) -> LabelBodyInstr {
         match instr {
             LabelBodyInstr::Assign(r, v)  => {
+                self.register_def_index.insert(r.index, self.index_label);
                 let v = self.optimize_label_instr(*v);
                 self.insert_const_value(r, v.clone());
                 let instr = self.replace_const_opti(r, v);
@@ -250,7 +267,11 @@ impl GlobalOptimizer for OptiOne {
         self.stmts = stmts.clone();
         stmts
             .into_iter()
-            .map(|x| self.optimize_statement(x))
+            .enumerate()
+            .map(|(i, x)| {
+                self.index_stmt = i;
+                self.optimize_statement(x)
+            })
             .collect()
     }
 

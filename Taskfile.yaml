@@ -1,0 +1,30 @@
+version: '3'
+
+tasks:
+  run:
+    cmds:
+      - task build
+      - ./target/release/mirage
+  build:
+    cmds:
+      - task build_backend
+      - task build_frontend
+      - cargo build --release
+
+  build_frontend:
+    cmds:
+      - cargo build --manifest-path crates/mirage-frontend/Cargo.toml --release
+
+  build_backend:
+    cmds:
+      - cargo build --manifest-path crates/mirage-backend/Cargo.toml --release
+
+  install:
+    cmds:
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+      - rustup install nightly
+      - rustup default nightly
+  commit:
+    cmds:
+      - git add .
+      - git commit -m {{.CLI_ARGS}}

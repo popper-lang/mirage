@@ -31,7 +31,6 @@ fn main() {
         .expect_register_value()
         .unwrap();
     let mut basic_block = builder.new_basic_block("entry");
-    let res = basic_block.build_int_add(lhs, lhs).unwrap();
     let zero = MirageTypeEnum::type_int32().const_value(0).to_value_enum();
     let c = basic_block.build_const(zero).unwrap();
     basic_block.build_ret(c).unwrap();
