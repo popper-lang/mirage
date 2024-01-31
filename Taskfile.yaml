@@ -48,7 +48,12 @@ tasks:
       - echo {{.CLI_ARGS}} >> .gitignore
       - git commit -m "Removed {{.CLI_ARGS}} from git repository"
 
+  check:
+    cmds:
+      - cargo check
+
   fmt:
     cmds:
-      - task commit -- "Saving before `cargo fmt`"
+      - task commit -- "Saving before cargo fmt"
       - cargo fmt
+      - task check
