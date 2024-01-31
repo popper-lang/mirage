@@ -24,6 +24,7 @@ tasks:
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
       - rustup install nightly
       - rustup default nightly
+
   commit:
     cmds:
       - git add .
@@ -36,8 +37,18 @@ tasks:
   push:
     cmds:
       - git push origin main
+
+  push_force:
+    cmds:
+      - git push origin main --force
+
   ignore:
     cmds:
       - git rm -r --cached {{.CLI_ARGS}}
       - echo {{.CLI_ARGS}} >> .gitignore
       - git commit -m "Removed {{.CLI_ARGS}} from git repository"
+
+  fmt:
+    cmds:
+      - task commit -- "Saving before `cargo fmt`"
+      - cargo fmt
