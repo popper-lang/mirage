@@ -3,7 +3,7 @@ A Compiler Tool Written in Rust for The popper langage
 
 # Example
 
-in Popper code 
+in Popper code
 ```
 external {
     func printf(a: string, ...): int
@@ -26,14 +26,14 @@ func main() {
     }
 }
 ```
-is compiled to the Mirage Code 
+is compiled to the Mirage Code
 
 ```
 
 module helloworld;
 target x86_64-all-macos;
 
-extern printf: args[@string, ...], ret[@void] 
+extern printf: args[@string, ...], ret[@void]
 
 type Foo = { @int32, @int32 }
 
@@ -41,7 +41,7 @@ global .str0 = @string "11 + 22 = %d\n\0"
 global .str1 = @string "i = %d\n\0"
 
 add(@int32, @int32) @int32 {
-block0 #start: 
+block0 #start:
     ret = add_int32 arg0, arg1
 }
 
@@ -49,18 +49,18 @@ main() @void #main {
 block0 #start:                              ; the flag start show that the function start by block0
     v0 = copy .str0                         ; the copy operator copy a value into a variable
     v1 = copy .str1
-    v2 = new Foo, {@int32 11, @int32 12}    ; v0 is a immutable const variable thats mean that the variable can countains big size data but cant be changed 
-    r0 = get v2, 0                          ; get the value at the 0 index of the struct Foo                
+    v2 = new Foo, {@int32 11, @int32 12}    ; v0 is a immutable const variable thats mean that the variable can countains big size data but cant be changed
+    r0 = get v2, 0                          ; get the value at the 0 index of the struct Foo
     r1 = get v2, 1
     r2 = add { r0, r1 }
     printf { v0, r2 }
-    free v0, v2                             ; we don't use anymore the variable v0, v2 so we delete 
+    free v0, v2                             ; we don't use anymore the variable v0, v2 so we delete
     r0 = const @int64 3
     jump for0
 for0:
-    jeq block1, r0, 9 
+    jeq block1, r0, 9
     printf { v1, r0 }
-    incr_int64 r0 
+    incr_int64 r0
     jump for0
 block1:
     free r0, r1
@@ -68,8 +68,8 @@ block1:
 
 ```
 
-# How to use it 
-## A Basic Function 
+# How to use it
+## A Basic Function
 ```rust
 use mirage::ir::builder::{BasicBlockBuilder, Builder};
 use mirage::ir::module::Module;
@@ -106,7 +106,7 @@ fn main() {
 }
 ```
 
-that will get this ir: 
+that will get this ir:
 ```
 module sum;
 target macos-x86_64-gcc;
@@ -153,12 +153,5 @@ Execution Engine are a way to interact with the generated code
 let sum: extern "C" fn(i32, i32) -> i32 = output
     .execution_engine()
     .get_function("sum");
-
-println!("{}", sum(1, 2)) // 3 
+!("{}", sum(1, 2)) // 3
 ```
-
-                
-    
-    
-
-    

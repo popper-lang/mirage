@@ -7,6 +7,8 @@ edition = "2021"
 members = [
     "mirage-backend-asm",
     "mirage-backend-codegen",
+    "mirage-backend-codegen-llvm",
+    "mirage-backend-llvm",
     "mirage-backend-opti",
 ]
 
@@ -15,3 +17,5 @@ mirage_frontend = { path = "../mirage-frontend" }
 mirage_backend_codegen = { path = "mirage-backend-codegen" }
 mirage_backend_asm = { path = "mirage-backend-asm" }
 mirage_backend_opti = { path = "mirage-backend-opti" }
+mirage_backend_llvm = { path = "mirage-backend-llvm" }
+mirage_backend_codegen_llvm = { path = "mirage-backend-codegen-llvm" }

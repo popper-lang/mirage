@@ -3,7 +3,7 @@ use crate::*;
 
 macro_rules! new_type {
     ($name:ident($mn:ident, $t:ty)($val:ty) = $e:expr) => {
-        #[derive(Debug, Clone, Copy, PartialEq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             size: Size
         }
@@ -36,7 +36,7 @@ macro_rules! new_type {
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum MirageTypeEnum {
     Int8(Int8Type),
     Int16(Int16Type),

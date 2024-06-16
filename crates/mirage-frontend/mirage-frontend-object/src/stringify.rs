@@ -43,6 +43,6 @@ impl Stringify for MirageValueEnum {
 
 impl Stringify for MirageObject {
     fn to_string(&self) -> String {
-        format!("{} {}", self.ty.print_to_string(), self.value.print_to_string())
+        format!("{}", self.value.print_to_string())
     }
 }

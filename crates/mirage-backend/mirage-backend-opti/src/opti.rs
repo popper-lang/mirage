@@ -47,13 +47,7 @@ pub trait GlobalOptimizer: Sized {
             .map(|x| self.optimize_statement(x))
             .collect()
     }
-    fn optimize_statement(&mut self, stmt: Statement) -> Statement {
-        match stmt {
-            Statement::Function(func) => Statement::Function(self.optimize_function(func)),
-            Statement::Global(global) => Statement::Global(self.optimize_global(global)),
-            e => e
-        }
-    }
+    fn optimize_statement(&mut self, stmt: Statement) -> Statement;
     fn optimize_function(&mut self, func: FunctionValue) -> FunctionValue;
     fn optimize_global(&mut self, global: Global) -> Global;
     fn optimize_labels(&mut self, labels: Label) -> Label {

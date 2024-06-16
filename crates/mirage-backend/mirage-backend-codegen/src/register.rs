@@ -2,7 +2,7 @@ use mirage_backend_asm::builder::Reg;
 
 
 #[derive(Debug, Clone)]
-pub struct RegisyerState {
+pub struct RegisterState {
     is_used: bool,
     is_dirty: bool,
     is_live: bool,
@@ -12,7 +12,7 @@ pub struct RegisyerState {
 
 #[derive(Debug, Clone)]
 pub struct RegisterAllocator {
-    regs: Vec<RegisyerState>,
+    regs: Vec<RegisterState>,
 }
 
 impl RegisterAllocator {
@@ -21,7 +21,7 @@ impl RegisterAllocator {
             regs: Reg
                 ::all()
                 .iter()
-                .map(|reg| RegisyerState {
+                .map(|reg| RegisterState {
                     is_used: false,
                     is_dirty: false,
                     is_live: false,

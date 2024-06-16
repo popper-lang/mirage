@@ -47,6 +47,10 @@ where
     pub fn iter(&self) -> Iter<T> {
         self.inner.iter()
     }
+    
+    pub fn into_vec(self) -> Vec<T> {
+        self.inner
+    }
 }
 
 impl<T: Stringify + Debug + Clone> Iterator for List<T> {

@@ -1,0 +1,8 @@
+[package]
+name = "mirage_backend_llvm"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+llvm-sys = "180.0.0"

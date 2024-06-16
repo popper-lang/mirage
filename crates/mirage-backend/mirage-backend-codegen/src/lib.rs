@@ -7,7 +7,7 @@ use mirage_backend_asm::builder::{AsmLabel, AsmLabelBuilder, AsmProgram, AsmProg
 use mirage_frontend::{
     module::Module,
     object::{
-        function::FunctionValue, label::{Command, Label, LabelBodyInstr}, statements::Statement
+        function::FunctionValue, label::{Command, Label}, statements::Statement
     }
 };
 use register::RegisterAllocator;

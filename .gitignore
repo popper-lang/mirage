@@ -1,5 +1,3 @@
-/target
-Cargo.lock
-/.idea
-crates/mirage-backend/target
-crates/mirage-frontend/target
+target/
+Cargo.lock/
+.idea/

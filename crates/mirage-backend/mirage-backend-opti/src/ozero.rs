@@ -22,6 +22,10 @@ impl GlobalOptimizer for OptiZero {
         OptiLevel::O0
     }
 
+    fn optimize_statement(&mut self, stmt: Statement) -> Statement {
+        stmt
+    }
+
     fn optimize_function(&mut self, func: FunctionValue) -> FunctionValue {
         func
     }

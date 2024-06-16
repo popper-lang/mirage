@@ -1,7 +1,7 @@
 
 
 /// A size of an object.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size {
     size: usize,
 }

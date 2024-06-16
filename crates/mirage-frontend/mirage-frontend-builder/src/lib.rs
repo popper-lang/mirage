@@ -268,4 +268,9 @@ impl BasicBlockBuilder {
             Ok(())
         }
     }
+    
+    fn dump(&self) {
+        println!("{:?}", self.block);
+    }
+    
 }

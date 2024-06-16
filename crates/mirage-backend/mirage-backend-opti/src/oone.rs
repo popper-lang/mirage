@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use mirage_frontend::object::{
-    function::FunctionValue, label::{
+    function::FunctionValue,
+    label::{
         Command, LabelBodyInstr, Value
-    }, meta::Flag, statements::{
+    },
+    meta::Flag,
+    statements::{
         Global,
         Statement
     }, util::List, MirageObject, MirageValueEnum, RegisterValue
@@ -110,10 +113,15 @@ impl OptiOne {
 
             },
             Value::Register(r) => {
-                if let Some(r) = self.register_const.get(&r.index) {
+                if let Some(v) = self.register_const.get(&r.index) {
+                    let index = *self.register_def_index.get(&r.index).unwrap();
+                    if let Statement::Function(ref mut func) = self.stmts.get_mut(self.index_stmt).unwrap() {
+                        let label = func.get_nth_label_mut(index).unwrap();
+                        label.body.remove(index);
+                    }
                     Value::ConstValue(
                         MirageObject::from(
-                            r.clone()
+                            v.clone()
                         )
                     )
                 } else {
@@ -129,6 +137,27 @@ impl GlobalOptimizer for OptiOne {
         OptiLevel::O1
     }
 
+
+    fn optimize_statements(&mut self, stmts: Vec<Statement>) -> Vec<Statement> {
+        self.stmts = stmts.clone();
+        stmts
+            .into_iter()
+            .enumerate()
+            .for_each(|(i, x)| {
+                self.index_stmt = i;
+                self.optimize_statement(x);
+            });
+
+        self.clone().stmts
+    }
+    fn optimize_statement(&mut self, stmt: Statement) -> Statement {
+        let stmt = match stmt {
+            Statement::Function(func) => Statement::Function(self.optimize_function(func)),
+            Statement::Global(global) => Statement::Global(self.optimize_global(global)),
+            e => e
+        };
+        stmt
+    }
 
     fn optimize_function(&mut self, func: FunctionValue) -> FunctionValue {
         let mut func = func.clone();
@@ -148,20 +177,38 @@ impl GlobalOptimizer for OptiOne {
             .enumerate()
             .for_each(|(index, x)| {
                 self.index_label = index;
-                x.body = x.body
+                x.body  = x.body
                     .iter()
-                    .map(|x| self.optimize_label_instr(x.clone()))
-                    .collect()
+                    .map(|x| {
+                        self.optimize_label_instr(x.clone())
+                    })
+                    .collect();
             });
         func
     }
+
     fn optimize_global(&mut self, global: Global) -> Global {
         self.global_const.insert(global.name.clone(), global.value.get_value());
         global
     }
 
+    fn optimize_labels(&mut self, labels: mirage_frontend::object::label::Label) -> mirage_frontend::object::label::Label {
+        mirage_frontend::object::label::Label::new(
+            labels.name,
+            labels.flags,
+            self.optimize_label_instrs(labels.body)
+        )
+    }
+
+    fn optimize_label_instrs(&mut self, instrs: Vec<LabelBodyInstr>) -> Vec<LabelBodyInstr> {
+        instrs
+            .into_iter()
+            .map(|x| self.optimize_label_instr(x))
+            .collect()
+    }
+
     fn optimize_label_instr(&mut self, instr: LabelBodyInstr) -> LabelBodyInstr {
-        match instr {
+        let res = match instr {
             LabelBodyInstr::Assign(r, v)  => {
                 self.register_def_index.insert(r.index, self.index_label);
                 let v = self.optimize_label_instr(*v);
@@ -260,42 +307,14 @@ impl GlobalOptimizer for OptiOne {
                 )
             },
             e => e
-        }
-    }
+        };
+        if let Statement::Function(ref mut func) = &mut self.stmts[self.index_stmt] {
+            let label = func.get_nth_label_mut(self.index_label).unwrap();
+            label.body[self.index_label] = res.clone();
+            self.stmts[self.index_stmt] = Statement::Function(func.clone())
+        };
 
-    fn optimize_statements(&mut self, stmts: Vec<Statement>) -> Vec<Statement> {
-        self.stmts = stmts.clone();
-        stmts
-            .into_iter()
-            .enumerate()
-            .map(|(i, x)| {
-                self.index_stmt = i;
-                self.optimize_statement(x)
-            })
-            .collect()
-    }
-
-    fn optimize_statement(&mut self, stmt: Statement) -> Statement {
-        match stmt {
-            Statement::Function(func) => Statement::Function(self.optimize_function(func)),
-            Statement::Global(global) => Statement::Global(self.optimize_global(global)),
-            e => e
-        }
-    }
-
-    fn optimize_labels(&mut self, labels: mirage_frontend::object::label::Label) -> mirage_frontend::object::label::Label {
-        mirage_frontend::object::label::Label::new(
-            labels.name,
-            labels.flags,
-            self.optimize_label_instrs(labels.body)
-        )
-    }
-
-    fn optimize_label_instrs(&mut self, instrs: Vec<LabelBodyInstr>) -> Vec<LabelBodyInstr> {
-        instrs
-            .into_iter()
-            .map(|x| self.optimize_label_instr(x))
-            .collect()
+        res
     }
 
 }

@@ -3,19 +3,63 @@ version: '3'
 tasks:
   run:
     cmds:
-      - task build
-      - ./target/release/mirage
-  build:
+      - sh -c '{{if eq .CLI_ARGS "RELEASE"}} task build_release exec_release  {{end}}'
+      - sh -c '{{if eq .CLI_ARGS "DEBUG"}} task build_debug exec_debug {{end}}'
+  exec_debug:
     cmds:
-      - task build_backend
-      - task build_frontend
+      - ./target/debug/mirage
+  build_debug:
+    cmds:
+      - task build_backend_debug build_frontend_debug
+      - cargo build
+
+  build_backend_debug:
+    cmds:
+      - task build_backend_asm_debug build_backend_codegen_debug build_backend_opti_debug
+      - cargo build --manifest-path crates/mirage-backend/Cargo.toml
+
+  build_backend_asm_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-backend/mirage-backend-asm/Cargo.toml
+
+  build_backend_codegen_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-backend/mirage-backend-codegen/Cargo.toml
+  build_backend_opti_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-backend/mirage-backend-opti/Cargo.toml
+
+  build_frontend_debug:
+    cmds:
+      - task build_frontend_builder_debug build_frontend_module_debug build_frontend_object_debug
+      - cargo build --manifest-path crates/mirage-frontend/Cargo.toml
+
+  build_frontend_builder_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-frontend/mirage-frontend-builder/Cargo.toml
+
+  build_frontend_module_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-frontend/mirage-frontend-module/Cargo.toml
+
+  build_frontend_object_debug:
+    cmds:
+      - cargo build --manifest-path crates/mirage-frontend/mirage-frontend-object/Cargo.toml
+
+  build_release:
+    cmds:
+      - task build_backend_release build_frontend_release
       - cargo build --release
 
-  build_frontend:
+  exec_release:
+    cmds:
+      - ./target/release/mirage
+
+  build_frontend_release:
     cmds:
       - cargo build --manifest-path crates/mirage-frontend/Cargo.toml --release
 
-  build_backend:
+  build_backend_release:
     cmds:
       - cargo build --manifest-path crates/mirage-backend/Cargo.toml --release
 
@@ -50,7 +94,7 @@ tasks:
 
   push_force:
     cmds:
-      - git push origin main --force
+      - task push -- --force
 
   ignore:
     cmds:

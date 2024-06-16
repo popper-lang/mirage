@@ -7,7 +7,7 @@ use crate::stringify::Stringify;
 ///
 /// Target is used to specify the target platform for the compiler.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Target(TargetType);
+pub struct Target(pub TargetType);
 
 impl Target {
     pub fn new(os: Os, arch: Arch, compiler: Compiler) -> Self {

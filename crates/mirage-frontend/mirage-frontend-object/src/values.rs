@@ -16,8 +16,8 @@ macro_rules! new_value {
     ($name:ident[$mn:ident] : $t:ty[$c:ty]) => {
         #[derive(Debug, Clone, Copy, PartialEq)]
         pub struct $name {
-            pub(crate) ty: $t,
-            pub(crate) value: $c
+            pub ty: $t,
+            pub value: $c
         }
 
         impl $name {
@@ -233,7 +233,7 @@ impl Into<FloatValue> for MirageValueEnum {
 new_value!(Float32Value[Float32]: Float32Type[f32]);
 new_value!(Float64Value[Float64]: Float64Type[f64]);
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq,  Hash)]
 pub struct RegisterValue {
     pub index: usize,
     pub register_type: RegisterType,
@@ -268,7 +268,7 @@ impl From<RegisterValue> for MirageValueEnum {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RegisterType {
     Register,
     Variable,

@@ -1,0 +1,8 @@
+[package]
+name = "mirage_backend_codegen_llvm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mirage_backend_llvm = { path = "../mirage-backend-llvm" }
+mirage_frontend = { path = "../../mirage-frontend" }
