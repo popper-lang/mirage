@@ -19,3 +19,5 @@ pub mod attribute;
 pub mod metadata;
 pub mod asm;
 mod debug;
+pub mod target;
+pub mod pass_manager;

@@ -36,7 +36,7 @@ macro_rules! new_type {
     };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum MirageTypeEnum {
     Int8(Int8Type),
     Int16(Int16Type),
@@ -47,7 +47,9 @@ pub enum MirageTypeEnum {
     UInt32(UInt32Type),
     UInt64(UInt64Type),
     Float32(Float32Type),
-    Float64(Float64Type)
+    Float64(Float64Type),
+    Array(ArrayType),
+    Pointer(PointerType)
 }
 
 impl MirageTypeEnum {
@@ -63,6 +65,8 @@ impl MirageTypeEnum {
             MirageTypeEnum::UInt64(t) => t.size,
             MirageTypeEnum::Float32(t) => t.size,
             MirageTypeEnum::Float64(t) => t.size,
+            MirageTypeEnum::Array(t) => t.size(),
+            MirageTypeEnum::Pointer(t) => t.size
         }
     }
 
@@ -78,6 +82,7 @@ impl MirageTypeEnum {
             "uint64" => Some(Self::UInt64(UInt64Type::new())),
             "float32" => Some(Self::Float32(Float32Type::new())),
             "float64" => Some(Self::Float64(Float64Type::new())),
+            
             _ => None
         }
     }
@@ -122,6 +127,8 @@ impl MirageTypeEnum {
             MirageTypeEnum::UInt64(_) => 64,
             MirageTypeEnum::Float32(_) => 32,
             MirageTypeEnum::Float64(_) => 64,
+            MirageTypeEnum::Pointer(_) => Size::of::<usize>().size() * 8,
+            MirageTypeEnum::Array(t) => t.element_ty().get_max_bits()
         }
     }
 
@@ -164,6 +171,10 @@ impl MirageTypeEnum {
     pub fn type_float64() -> Float64Type {
         Float64Type::new()
     }
+    
+    pub fn type_array(element_ty: MirageTypeEnum, length: usize) -> ArrayType {
+        ArrayType::new(element_ty, length)
+    }
 
 
     pub fn print_to_string(&self) -> String {
@@ -178,6 +189,8 @@ impl MirageTypeEnum {
             MirageTypeEnum::UInt64(t) => t.print_to_string(),
             MirageTypeEnum::Float32(t) => t.print_to_string(),
             MirageTypeEnum::Float64(t) => t.print_to_string(),
+            MirageTypeEnum::Array(t) => t.print_to_string(),
+            MirageTypeEnum::Pointer(t) => t.print_to_string()
         }
     }
 
@@ -193,3 +206,76 @@ new_type!(UInt32Type(UInt32, u32)(UInt32Value) = "@uint32");
 new_type!(UInt64Type(UInt64, u64)(UInt64Value) = "@uint64");
 new_type!(Float32Type(Float32, f32)(Float32Value) = "@float32");
 new_type!(Float64Type(Float64, f64)(Float64Value) = "@float64");
+
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ArrayType {
+    pub element_ty: Box<MirageTypeEnum>,
+    pub length: usize,
+    pub size: Size
+}
+
+impl ArrayType {
+    pub fn new(element_ty: MirageTypeEnum, length: usize) -> Self {
+        Self {
+            element_ty: Box::new(element_ty.clone()),
+            length,
+            size: Size::new(element_ty.size().size() * length)
+        }
+    }
+
+    pub fn element_ty(&self) -> MirageTypeEnum {
+        *self.element_ty.clone()
+    }
+
+    pub fn length(&self) -> usize {
+        self.length
+    }
+
+    pub fn size(&self) -> Size {
+        self.size
+    }
+
+    pub fn print_to_string(&self) -> String {
+        format!("[{} x {}]", self.length, self.element_ty.print_to_string())
+    }
+    
+    pub fn const_value(&self, val: Vec<MirageValueEnum>) -> ArrayValue {
+        ArrayValue::new(self.clone(), val)
+    }
+}
+
+impl From<ArrayType> for MirageTypeEnum {
+    fn from(ty: ArrayType) -> Self {
+        Self::Array(ty)
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct PointerType {
+    pub element_ty: Box<MirageTypeEnum>,
+    pub size: Size
+}
+
+impl PointerType {
+    pub fn new(element_ty: MirageTypeEnum) -> Self {
+        Self {
+            element_ty: Box::new(element_ty.clone()),
+            size: Size::of::<usize>()
+        }
+    }
+
+    pub fn print_to_string(&self) -> String {
+        format!("{}*", self.element_ty.print_to_string())
+    }
+    
+    
+}
+
+
+impl From<PointerType> for MirageTypeEnum {
+    fn from(ty: PointerType) -> Self {
+        Self::Pointer(ty)
+    }
+}

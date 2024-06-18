@@ -5,7 +5,8 @@ use llvm_sys::execution_engine::{
 
 use crate::module::Module;
 use crate::value::function_value::FunctionValue;
-use llvm_sys::target::{LLVM_InitializeNativeAsmPrinter, LLVM_InitializeNativeTarget};
+use crate::target::Target;
+
 
 pub trait UnsafeFunctionPtr: Copy {}
 
@@ -23,8 +24,7 @@ impl ExecutionEngine {
     fn init() {
         unsafe {
             LLVMLinkInMCJIT();
-            assert_eq!(LLVM_InitializeNativeTarget(), 0);
-            assert_eq!(LLVM_InitializeNativeAsmPrinter(), 0);
+            Target::init()
         }
     }
     pub fn new(execution_engine: LLVMExecutionEngineRef) -> Self {

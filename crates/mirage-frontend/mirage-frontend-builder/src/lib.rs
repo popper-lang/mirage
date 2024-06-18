@@ -77,7 +77,7 @@ impl Builder {
     }
 
     pub fn build_global(&mut self, name: String, obj: MirageObject) {
-        let global = Global::new(name.clone(), obj);
+        let global = Global::new(name.clone(), obj.clone());
         self.module.add_global(global.clone());
         self.asts
             .push(Statement::Global(Global::new(name, obj)));

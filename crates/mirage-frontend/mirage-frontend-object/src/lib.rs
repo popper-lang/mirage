@@ -10,7 +10,7 @@ pub mod meta;
 pub use values::*;
 pub use types::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MirageObject {
     pub(crate) value: MirageValueEnum,
     pub(crate) ty: MirageTypeEnum,
@@ -19,7 +19,7 @@ pub struct MirageObject {
 impl MirageObject {
     pub fn from(value: MirageValueEnum) -> Self {
         Self {
-            value,
+            value: value.clone(),
             ty: value.get_type()
         }
     }
@@ -31,7 +31,7 @@ impl MirageObject {
     }
 
     pub fn get_type(&self) -> MirageTypeEnum {
-        self.ty
+        self.ty.clone()
     }
 
     pub fn get_value(&self) -> MirageValueEnum {

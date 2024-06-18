@@ -41,6 +41,8 @@ impl Builder {
     pub fn get_context(&self) -> Context {
         self.context
     }
+    
+    /// Build an integer add instruction
     pub fn build_int_add(
         &self,
         lhs: IntValue,

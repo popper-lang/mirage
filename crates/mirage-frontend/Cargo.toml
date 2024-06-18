@@ -8,3 +8,4 @@ edition = "2021"
 mirage_frontend_builder = { path = "mirage-frontend-builder" }
 mirage_frontend_module = { path = "mirage-frontend-module" }
 mirage_frontend_object = { path = "mirage-frontend-object" }
+mirage_frontend_config = { path = "mirage-frontend-config" }

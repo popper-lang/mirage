@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 mirage_backend_llvm = { path = "../mirage-backend-llvm" }
+mirage_backend_output = { path = "../mirage-backend-output" }
 mirage_frontend = { path = "../../mirage-frontend" }

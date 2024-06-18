@@ -1,0 +1,6 @@
+[package]
+name = "mirage_frontend_config"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]

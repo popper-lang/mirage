@@ -39,7 +39,7 @@ impl OptiOne {
     }
 
     fn replace_const_opti(&mut self, r: RegisterValue, v: LabelBodyInstr) -> LabelBodyInstr {
-        match v {
+        match v.clone() {
             LabelBodyInstr::Command(
                 Command::Const(
                     obj
@@ -54,7 +54,7 @@ impl OptiOne {
                             }
                             return LabelBodyInstr::Command(
                                 Command::Const(
-                                    MirageObject::from(*v)
+                                    MirageObject::from(v.clone())
                                 )
                             )
                         }
@@ -73,14 +73,14 @@ impl OptiOne {
     }
 
     fn optimize_mirage_value(&mut self, val: MirageValueEnum) -> MirageValueEnum {
-        if let MirageValueEnum::Register(r) = val {
+        if let MirageValueEnum::Register(r) = val.clone() {
             if let Some(v) = self.register_const.get(&r.index) {
                 let index = *self.register_def_index.get(&r.index).unwrap();
                 if let Statement::Function(ref mut func) = &mut self.stmts[self.index_stmt] {
                     let label = func.get_nth_label_mut(index).unwrap();
                     label.body.remove(index);
                 }
-                *v
+                v.clone()
             } else {
                 val
             }
@@ -212,7 +212,7 @@ impl GlobalOptimizer for OptiOne {
             LabelBodyInstr::Assign(r, v)  => {
                 self.register_def_index.insert(r.index, self.index_label);
                 let v = self.optimize_label_instr(*v);
-                self.insert_const_value(r, v.clone());
+                self.insert_const_value(r.clone(), v.clone());
                 let instr = self.replace_const_opti(r, v);
                 instr
             },

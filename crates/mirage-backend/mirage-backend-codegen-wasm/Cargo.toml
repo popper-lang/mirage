@@ -1,0 +1,8 @@
+[package]
+name = "mirage_backend_codegen_wasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+walrus = "0.20.3"
+mirage_frontend = { path = "../../mirage-frontend" }

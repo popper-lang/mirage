@@ -24,7 +24,7 @@ tasks:
 
   build_backend_codegen_debug:
     cmds:
-      - cargo build --manifest-path crates/mirage-backend/mirage-backend-codegen/Cargo.toml
+      - cargo build --manifest-path crates/mirage-backend/mirage-backend-codegen-asm/Cargo.toml
   build_backend_opti_debug:
     cmds:
       - cargo build --manifest-path crates/mirage-backend/mirage-backend-opti/Cargo.toml

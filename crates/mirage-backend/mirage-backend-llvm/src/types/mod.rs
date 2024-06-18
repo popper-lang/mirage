@@ -234,6 +234,13 @@ impl TypeEnum {
             _ => panic!("Expected IntType, got {:?}", self),
         }
     }
+    
+    pub fn into_array_type(self) -> array_types::ArrayType {
+        match self { 
+            TypeEnum::ArrayType(t) => t,
+            _ => panic!("Expected ArrayType, got {:?}", self),
+        }
+    }
 }
 
 

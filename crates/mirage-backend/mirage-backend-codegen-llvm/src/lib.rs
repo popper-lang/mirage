@@ -1,16 +1,27 @@
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::sync::Arc;
 use mirage_backend_llvm::builder::{Builder, MathOpType};
 use mirage_backend_llvm::context::Context;
+use mirage_backend_llvm::execution_engine::ExecutionEngine;
 use mirage_backend_llvm::module::Module;
+use mirage_backend_llvm::target::{CodeGenFileType, CodeModel, OptimizationLevel, RelocMode, Target};
 use mirage_backend_llvm::types::{Type, TypeBuilder, TypeEnum};
 use mirage_backend_llvm::types::struct_type::StructType;
 use mirage_backend_llvm::value::ValueEnum;
+use mirage_backend_output::{CompilerOutput, ExecutionEngineOutput, ObjectOutput};
 use mirage_frontend::object::function::FunctionValue;
 use mirage_frontend::object::label::{Command, LabelBodyInstr, Value};
 use mirage_frontend::object::{MirageObject, MirageTypeEnum, MirageValueEnum, RegisterValue};
 use mirage_frontend::object::statements::{External, Statement, TypeDef};
-use mirage_frontend::object::stringify::Stringify;
 
+
+/// A compiler error
+/// # Variants
+/// * `InvalidStatement` - Invalid statement
+/// * `ModuleDeclMissing` - Module declaration missing
+/// * `TargetMissing` - Target missing
 #[derive(Debug)]
 pub enum CompilerError {
     InvalidStatement,
@@ -20,6 +31,8 @@ pub enum CompilerError {
 
 type CompilerResult<T> = Result<T, CompilerError>;
 
+
+/// The LLVM Compiler struct 
 #[derive(Debug, Clone)]
 pub struct Compiler {
     context: Context,
@@ -32,6 +45,11 @@ pub struct Compiler {
 
 impl Compiler {
 
+    /// Convert Mirage type to LLVM type
+    /// # Arguments
+    /// * `ty` - Mirage type
+    /// # Returns
+    /// * LLVM type
     pub fn mirage_ty_to_llvm_ty(&self, ty: MirageTypeEnum) -> TypeEnum {
         match ty {
             MirageTypeEnum::Int8(_) | MirageTypeEnum::UInt8(_) => self.context.i8_type().to_type_enum(),
@@ -40,19 +58,26 @@ impl Compiler {
             MirageTypeEnum::Int64(_) | MirageTypeEnum::UInt64(_) => self.context.i64_type().to_type_enum(),
             MirageTypeEnum::Float32(_) => self.context.float_type().to_type_enum(),
             MirageTypeEnum::Float64(_) => self.context.float_type().to_type_enum(),
+            MirageTypeEnum::Array(t) => {
+                let element_ty = self.mirage_ty_to_llvm_ty(t.element_ty());
+                let length = t.length();
+                element_ty.array(length as u64).to_type_enum()
+            },
+            MirageTypeEnum::Pointer(t) => {
+                let ty = self.mirage_ty_to_llvm_ty(*t.element_ty.clone());
+                ty.ptr().to_type_enum()
+            }
         }
     }
 
 
+    /// Create a new compiler
     pub fn new(stmts: Vec<Statement>) -> CompilerResult<Self> {
         let context = Context::create();
         if stmts.len() == 0 {
             return Err(CompilerError::ModuleDeclMissing);
         }
 
-        if stmts.len() == 1 {
-            return Err(CompilerError::TargetMissing);
-        }
 
         let module_decl = stmts[0].clone();
         let module = match module_decl {
@@ -60,11 +85,6 @@ impl Compiler {
             _ => return Err(CompilerError::ModuleDeclMissing),
         };
 
-        let target_triple = stmts[1].clone();
-        match target_triple {
-            Statement::Target(t) => module.set_target_triple(&t.0.to_str()),
-            _ => return Err(CompilerError::TargetMissing),
-        }
 
         let builder = context.new_builder();
 
@@ -80,13 +100,14 @@ impl Compiler {
         })
     }
 
+    /// Compile the module
     pub fn compile(&mut self) {
         for stmt in self.stmts.clone().iter() {
             self.compile_stmt(stmt);
         }
     }
 
-    pub fn compile_stmt(&mut self, stmt: &Statement) {
+    fn compile_stmt(&mut self, stmt: &Statement) {
         match stmt.clone() {
             Statement::Function(f) => {
                 self.compile_function(f);
@@ -100,25 +121,25 @@ impl Compiler {
             _ => {}
         }
     }
-    
-    pub fn compile_typedef(&mut self, t: TypeDef) {
+
+    fn compile_typedef(&mut self, t: TypeDef) {
         let members = t.ty.into_vec().iter().map(|x| self.mirage_ty_to_llvm_ty(x.clone())).collect::<Vec<_>>();
         let struct_ty = self.context.named_struct_type(&t.name);
         struct_ty.set_body(&members, false);
         self.struct_env.insert(t.name, struct_ty);
     }
-    
-    pub fn compile_external(&mut self, external: External) {
+
+    fn compile_external(&mut self, external: External) {
         let fn_ty = external.ty;
         let args: Vec<_> = fn_ty.get_args().iter().map(|ty| self.mirage_ty_to_llvm_ty(ty.clone())).collect();
         let ret = self.mirage_ty_to_llvm_ty(fn_ty.get_ret().clone());
         let fn_ty = ret.func(args, false);
         self.module.add_function(&external.name, fn_ty);
     }
-        
-        
 
-    pub fn compile_function(&mut self, func: FunctionValue) {
+
+
+    fn compile_function(&mut self, func: FunctionValue) {
         let args_ty: Vec<_> = func
             .get_type()
             .get_args()
@@ -141,7 +162,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile_instr(&mut self, bb: mirage_backend_llvm::basic_block::BasicBlock, instr: &LabelBodyInstr) -> Option<ValueEnum> {
+    fn compile_instr(&mut self, bb: mirage_backend_llvm::basic_block::BasicBlock, instr: &LabelBodyInstr) -> Option<ValueEnum> {
         match instr {
             LabelBodyInstr::Command(c) => {
                 self.compile_command(c.clone())
@@ -164,7 +185,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile_command(&mut self, cmd: Command) -> Option<ValueEnum> {
+    fn compile_command(&mut self, cmd: Command) -> Option<ValueEnum> {
         match cmd {
             Command::New(s, args) => {
                 let struct_ty = self.struct_env.get(&s).unwrap().clone();
@@ -248,15 +269,14 @@ impl Compiler {
         }
     }
 
-    pub fn compile_value(&mut self, val: &Value) -> ValueEnum {
+    fn compile_value(&mut self, val: &Value) -> ValueEnum {
         match val {
             Value::ConstValue(c) => self.compile_object(c.clone()),
             Value::Register(r) => self.compile_register_value(r.clone()),
             _ => todo!()
         }
     }
-    pub fn compile_object(&mut self, obj: MirageObject) -> ValueEnum {
-        let ty = self.mirage_ty_to_llvm_ty(obj.get_type());
+    fn compile_object(&mut self, obj: MirageObject) -> ValueEnum {
         match obj.get_value() {
             MirageValueEnum::Register(r) => {
                 self.compile_register_value(r)
@@ -270,19 +290,48 @@ impl Compiler {
             MirageValueEnum::UInt32(v) => self.context.i32_type().int(v.value as u64, false).to_value_enum(),
             MirageValueEnum::UInt64(v) => self.context.i64_type().int(v.value as u64, false).to_value_enum(),
             MirageValueEnum::Float32(v) => self.context.float_type().float(v.value as f64).to_value_enum(),
-            MirageValueEnum::Float64(v) => self.context.float_type().float(v.value as f64).to_value_enum(),
+            MirageValueEnum::Float64(v) => self.context.float_type().float(v.value).to_value_enum(),
+            MirageValueEnum::Array(a) => {
+                let elts = a.values.iter().map(|x| 
+                    self.compile_object(
+                        MirageObject::new(x.clone(), a.ty.clone().into())
+                    )
+                ).collect::<Vec<_>>();
+                
+                let ty = self.mirage_ty_to_llvm_ty(a.ty.clone().into());
+                ty.into_array_type().const_array(&elts).to_value_enum()
+            },
+            MirageValueEnum::Pointer(_) => panic!("A pointer is not a constant value")
         }
     }
 
-    pub fn compile_register_value(&mut self, val: RegisterValue) -> ValueEnum {
+    fn compile_register_value(&mut self, val: RegisterValue) -> ValueEnum {
         let ty = self.mirage_ty_to_llvm_ty(val.get_type());
         let ptr = self.env.get(&val).unwrap().into_ptr_value();
         self.builder.build_load(ty, ptr, "")
     }
-    
+
     pub fn dump(&self) {
         self.module.dump();
     }
-    
 
+
+}
+
+impl CompilerOutput for Compiler {
+    fn object<'a>(&mut self) ->  ObjectOutput<'a> {
+        todo!()
+    }
+
+    fn execution_engine(&mut self) -> impl ExecutionEngineOutput {
+        self.clone()
+    }
+}
+
+impl ExecutionEngineOutput for Compiler {
+    fn get_function<T: Copy + Sized>(&mut self, name: &str) -> T {
+        let execution_engine = ExecutionEngine::new_with_module(&self.module);
+        
+        execution_engine.get_function(name)
+    }
 }
