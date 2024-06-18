@@ -175,6 +175,10 @@ impl MirageTypeEnum {
     pub fn type_array(element_ty: MirageTypeEnum, length: usize) -> ArrayType {
         ArrayType::new(element_ty, length)
     }
+    
+    pub fn type_ptr(element_ty: MirageTypeEnum) -> PointerType {
+        PointerType::new(element_ty)
+    }
 
 
     pub fn print_to_string(&self) -> String {
