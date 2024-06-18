@@ -69,6 +69,12 @@ impl FunctionValue {
             self.ty.args[n].clone(),
         )))
     }
+    
+    pub fn get_args(&self) -> Vec<MirageValueEnum> {
+        self.ty.args.iter().enumerate().map(|(i, ty)| {
+            MirageValueEnum::Register(RegisterValue::new(i, RegisterType::Argument, ty.clone()))
+        }).collect()
+    }
 
     pub fn len_labels(&self) -> usize {
         self.labels.len()
