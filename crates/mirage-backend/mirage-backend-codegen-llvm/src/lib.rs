@@ -118,6 +118,16 @@ impl Compiler {
             Statement::Typedef(t) => {
                 self.compile_typedef(t);
             },
+            Statement::Global(global) => {
+                let obj = global.value.clone();
+                let ty = self.mirage_ty_to_llvm_ty(obj.get_type());
+                if !obj.get_type().is_string() {
+                    panic!("Global value who arent string doesn't work right now")
+                }
+                let s = global.value.get_value().try_to_rust_string().unwrap();
+                
+                self.builder.build_global_string(&global.name, &s);
+            }
             _ => {}
         }
     }

@@ -106,6 +106,25 @@ impl MirageValueEnum {
             _ => None
         }
     }
+    
+    pub fn try_to_rust_string(&self) -> Option<String> {
+        if !self.get_type().is_string() {
+            return None;
+        }
+        match self {
+            MirageValueEnum::Array(a) => {
+                let mut s = Vec::new();
+                for c in a.values.clone() {
+                    let c = c.expect_int_value().unwrap().expect_int8_value();
+                    s.push(c.value as u8);
+                }
+                
+                Some(String::from_utf8(s).unwrap())
+            },
+            _ => None
+        }
+        
+    }
 
     pub fn print_to_string(&self) -> String {
         match self {
@@ -137,6 +156,35 @@ pub enum IntValue {
 }
 
 impl IntValue {
+    
+    pub fn expect_int8_value(&self) -> Int8Value {
+        match self { 
+            IntValue::Int8(e) => e.clone(),
+            e => panic!("expect int8 type got {:?}", e)
+        }
+    }
+    
+    pub fn expect_int16_value(&self) -> Int16Value {
+        match self { 
+            IntValue::Int16(e) => e.clone(),
+            e => panic!("expect int16 type got {:?}", e)
+        }
+    }
+    
+    pub fn expect_int32_value(&self) -> Int32Value {
+        match self { 
+            IntValue::Int32(e) => e.clone(),
+            e => panic!("expect int32 type got {:?}", e)
+        }
+    }
+    
+    pub fn expect_int64_value(&self) -> Int64Value {
+        match self { 
+            IntValue::Int64(e) => e.clone(),
+            e => panic!("expect int64 type got {:?}", e)
+        }
+    }
+    
     pub fn get_mem_size(&self) -> usize {
         match self {
             IntValue::Int8(_) => 1,
@@ -333,7 +381,8 @@ impl From<RegisterValue> for MirageValueEnum {
 pub enum RegisterType {
     Register,
     Variable,
-    Argument
+    Argument,
+    Global
 }
 
 impl RegisterType {
@@ -342,6 +391,7 @@ impl RegisterType {
             RegisterType::Register => "r",
             RegisterType::Variable => "v",
             RegisterType::Argument => "arg",
+            RegisterType::Global => "g"
         }.to_string()
     }
 }
@@ -370,6 +420,7 @@ impl TryFrom<&str> for RegisterType {
             "r" => Ok(RegisterType::Register),
             "v" => Ok(RegisterType::Variable),
             "arg" => Ok(RegisterType::Argument),
+            "g" => Ok(RegisterType::Global),
             _ => Err(format!("Cannot convert {} into RegisterType", value))
         }
     }

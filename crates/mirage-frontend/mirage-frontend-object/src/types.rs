@@ -179,6 +179,19 @@ impl MirageTypeEnum {
     pub fn type_ptr(element_ty: MirageTypeEnum) -> PointerType {
         PointerType::new(element_ty)
     }
+    
+    pub fn is_string(&self) -> bool {
+        match self {
+            MirageTypeEnum::Array(t) => {
+                if let MirageTypeEnum::Int8(_) = t.element_ty() {
+                    true
+                } else {
+                    false
+                }
+            },
+            _ => false
+        }
+    }
 
 
     pub fn print_to_string(&self) -> String {
