@@ -123,6 +123,10 @@ impl BasicBlock {
     pub fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue) -> BuilderResult<MirageValueEnum> {
         self.inner.build_int_add(lhs, rhs)
     }
+    
+    pub fn build_call(&mut self, f_name: String, args: Vec<MirageValueEnum>) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_call(f_name, args)
+    }
 
     pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
         self.inner.build_ret(val)
@@ -245,6 +249,22 @@ impl BasicBlockBuilder {
         self.block.body.push(LabelBodyInstr::Assign(
             memory.clone(),
             Box::new(LabelBodyInstr::Command(command)),
+        ));
+        Ok(memory.to_mirage_value())
+    }
+    
+    pub fn build_call(&mut self, f_name: String, args: Vec<MirageValueEnum>) -> BuilderResult<MirageValueEnum> {
+        self.check_return()?;
+        let mut args = args
+            .iter()
+            .map(|x| Value::ConstValue(MirageObject::from(x.clone())) )
+            .collect::<Vec<Value>>();
+        let func = self.inner.module.get_function(&f_name).ok_or(BuilderError::FunctionNotFound(f_name.clone()))?;
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, func.get_type().get_ret().clone());
+        self.index_r += 1;
+        self.block.body.push(LabelBodyInstr::Assign(
+            memory.clone(),
+            Box::new(LabelBodyInstr::Call(f_name, args.clone())),
         ));
         Ok(memory.to_mirage_value())
     }
