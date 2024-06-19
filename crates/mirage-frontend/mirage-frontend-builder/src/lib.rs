@@ -11,7 +11,7 @@ use mirage_frontend_object::meta::Flags;
 use mirage_frontend_object::statements::{External, Global, ModuleDecl, Statement, Target};
 use mirage_frontend_module::Module;
 use mirage_frontend_object::function::{FunctionType, FunctionValue};
-use mirage_frontend_object::MirageValueEnum;
+use mirage_frontend_object::{MirageTypeEnum, MirageValueEnum};
 use mirage_frontend_object::{IntValue, MirageObject, RegisterType, RegisterValue};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -135,6 +135,14 @@ impl BasicBlock {
 
     pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
         self.inner.build_ret(val)
+    }
+    
+    pub fn build_ref(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_ref(val)
+    }
+    
+    pub fn build_load(&mut self, ty: MirageTypeEnum, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_load(ty, val)
     }
 
 
@@ -284,6 +292,32 @@ impl BasicBlockBuilder {
             Command::Ret(value)
         ));
         Ok(())
+    }
+    
+    pub fn build_ref(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+        self.check_return()?;
+        let ty = MirageTypeEnum::type_ptr(val.get_type()).into();
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty);
+        let val = val.try_into().map_err(|x| BuilderError::InternalError(x))?;
+        self.index_r += 1;
+        self.block.body.push(LabelBodyInstr::Assign(
+            memory.clone(),
+            Box::new(LabelBodyInstr::Command(Command::Ref(val))),
+        ));
+        Ok(memory.to_mirage_value())
+    } 
+    
+    pub fn build_load(&mut self, ty: MirageTypeEnum, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+        self.check_return()?;
+        
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty.clone());
+        let val = val.try_into().map_err(|x| BuilderError::InternalError(x))?;
+        self.index_r += 1;
+        self.block.body.push(LabelBodyInstr::Assign(
+            memory.clone(),
+            Box::new(LabelBodyInstr::Command(Command::Load(ty, val))),
+        ));
+        Ok(memory.to_mirage_value())
     }
 
     fn check_return(&mut self) -> BuilderResult<()> {

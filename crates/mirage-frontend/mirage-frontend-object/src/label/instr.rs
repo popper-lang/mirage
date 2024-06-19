@@ -1,6 +1,6 @@
 use crate::stringify::Stringify;
 use super::value::Value;
-use crate::{IntValue, MirageObject, MirageValueEnum, RegisterValue};
+use crate::{IntValue, MirageObject, MirageTypeEnum, MirageValueEnum, RegisterValue};
 use crate::util::List;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,6 +43,8 @@ pub enum Command {
     AddInt64(Value, Value),
     AddFloat32(Value, Value),
     AddFloat64(Value, Value),
+    Ref(Value),
+    Load(MirageTypeEnum, Value)
 }
 
 impl Stringify for Command {
@@ -67,7 +69,9 @@ impl Stringify for Command {
             Command::AddFloat32(val1, val2) => format!("add_f32 {}, {}", val1.to_string(), val2.to_string()),
             Command::AddFloat64(val1, val2) => format!("add_f64 {}, {}", val1.to_string(), val2.to_string()),
             Command::Const(val) => val.to_string(),
-            Command::Ret(val) => format!("ret {}", val.to_string())
+            Command::Ret(val) => format!("ret {}", val.to_string()),
+            Command::Ref(val) => format!("ref {}", val.to_string()),
+            Command::Load(ty, val) => format!("load {}, {}", ty.print_to_string(), val.to_string())
 
         }
     }
