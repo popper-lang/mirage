@@ -324,6 +324,10 @@ impl Compiler {
     pub fn dump(&self) {
         self.module.dump();
     }
+    
+    pub fn print_to_string(&self) -> String {
+        self.module.print_to_string()
+    }
 
 
 }
