@@ -4,11 +4,12 @@ use crate::{label::Label, stringify::Stringify, MirageTypeEnum, MirageValueEnum,
 pub struct FunctionType {
     args: Vec<MirageTypeEnum>,
     ret: MirageTypeEnum,
+    is_var_arg: bool,
 }
 
 impl FunctionType {
-    pub fn new(args: Vec<MirageTypeEnum>, ret: MirageTypeEnum) -> Self {
-        Self { ret, args }
+    pub fn new(args: Vec<MirageTypeEnum>, ret: MirageTypeEnum, is_var_arg: bool) -> Self {
+        Self { ret, args, is_var_arg }
     }
 
     pub fn get_ret(&self) -> &MirageTypeEnum {
@@ -17,6 +18,10 @@ impl FunctionType {
 
     pub fn get_args(&self) -> &Vec<MirageTypeEnum> {
         &self.args
+    }
+    
+    pub fn is_var_arg(&self) -> bool {
+        self.is_var_arg
     }
 
     pub fn fn_value(&self, name: String) -> FunctionValue {

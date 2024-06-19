@@ -18,6 +18,7 @@ fn main() {
             MirageTypeEnum::type_int32().into(),
         ],
         MirageTypeEnum::type_int32().into(),
+        false
     );
 
     let mut fn_main = fn_type.fn_value("add".to_string());

@@ -143,7 +143,7 @@ impl Compiler {
         let fn_ty = external.ty;
         let args: Vec<_> = fn_ty.get_args().iter().map(|ty| self.mirage_ty_to_llvm_ty(ty.clone())).collect();
         let ret = self.mirage_ty_to_llvm_ty(fn_ty.get_ret().clone());
-        let fn_ty = ret.func(args, false);
+        let fn_ty = ret.func(args, fn_ty.is_var_arg());
         self.module.add_function(&external.name, fn_ty);
     }
 
@@ -161,7 +161,7 @@ impl Compiler {
 
         let ret_ty = self.mirage_ty_to_llvm_ty(func.get_type().get_ret().clone());
 
-        let fn_ty = ret_ty.func(args_ty, false);
+        let fn_ty = ret_ty.func(args_ty, func.get_type().is_var_arg());
         let fn_value = self.module.add_function(func.get_name(), fn_ty);
         for label in func.get_labels() {
             let bb = self.context.append_basic_block(&label.name, fn_value);
