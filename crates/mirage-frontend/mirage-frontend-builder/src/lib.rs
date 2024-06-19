@@ -78,12 +78,12 @@ impl Builder {
             ))
     }
 
-    pub fn build_global(&mut self, name: String, obj: MirageObject) -> MirageValueEnum {
-        let global = Global::new(name.clone(), obj.clone());
+    pub fn build_global(&mut self, obj: MirageObject) -> MirageValueEnum {
+        let reg = RegisterValue::new(self.index_g, RegisterType::Global, obj.get_type());
+        let global = Global::new(reg.print_to_string(), obj.clone());
         self.module.add_global(global.clone());
         self.asts
-            .push(Statement::Global(Global::new(name, obj.clone())));
-        let reg = RegisterValue::new(self.index_g, RegisterType::Global, obj.get_type());
+            .push(Statement::Global(Global::new(reg.print_to_string(), obj.clone())));
         self.index_g += 1;
         MirageValueEnum::Register(reg)
     }
