@@ -33,7 +33,6 @@ impl ArrayType {
         assert_eq!(self.get_element_type(), IntType::new_sized(8).to_type_enum());
     }
     pub fn new(element_type: TypeEnum, size: u64) -> Self {
-        check_same_ty(element_type.as_raw().as_llvm_ref(), "array");
         let array_type = unsafe { LLVMArrayType(element_type.as_raw().as_llvm_ref(), size) };
         Self { array_type: RawType::new(array_type), size }
     }
