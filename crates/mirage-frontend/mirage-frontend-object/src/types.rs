@@ -192,6 +192,13 @@ impl MirageTypeEnum {
             _ => false
         }
     }
+    
+    pub fn expect_ptr_type(&self) -> PointerType {
+        match self {
+            MirageTypeEnum::Pointer(t) => t.clone(),
+            _ => panic!("Expected pointer type")
+        }
+    }
 
 
     pub fn print_to_string(&self) -> String {

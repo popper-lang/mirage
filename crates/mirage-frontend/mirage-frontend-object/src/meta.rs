@@ -1,6 +1,6 @@
 use crate::stringify::Stringify;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Flags {
     pub inner: Vec<Flag>
 }
@@ -15,6 +15,9 @@ impl Flags {
     pub fn push(&mut self, flag: Flag) {
         self.inner.push(flag);
     }
+    pub fn contains(&self, flag: &Flag) -> bool {
+        self.inner.contains(flag)
+    }
 }
 
 impl Stringify for Flags {
@@ -28,12 +31,17 @@ impl Stringify for Flags {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Flag {
     pub name: String
 }
 
 impl Flag {
+    pub fn not_loadable() -> Self {
+        Self {
+            name: "not_loadable".to_string()
+        }
+    }
     pub fn new(name: String) -> Self {
         Self {
             name

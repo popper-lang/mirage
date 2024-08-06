@@ -23,7 +23,7 @@ impl Stringify for LabelBodyInstr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    Copy(String),
+    Store(RegisterValue, Value),
     New(String, List<Value>),
     Get(RegisterValue, usize),
     Const(MirageObject),
@@ -43,6 +43,13 @@ pub enum Command {
     AddInt64(Value, Value),
     AddFloat32(Value, Value),
     AddFloat64(Value, Value),
+    SubInt8(Value, Value),
+    SubInt16(Value, Value),
+    SubInt32(Value, Value),
+    SubInt64(Value, Value),
+    SubFloat32(Value, Value),
+    SubFloat64(Value, Value),
+
     Ref(Value),
     Load(MirageTypeEnum, Value)
 }
@@ -50,7 +57,7 @@ pub enum Command {
 impl Stringify for Command {
     fn to_string(&self) -> String {
         match self {
-            Command::Copy(name) => format!("copy {}", name.to_string()),
+            Command::Store(mem, val) => format!("store {}, {}", mem.print_to_string(), val.to_string()),
             Command::New(name, args) => format!("new {}, {}", name, args.to_string()),
             Command::Get(mem, index) => format!("get {}, {}", mem.print_to_string(), index),
             Command::Free(mems) => format!("free {}", mems.iter().map(|x| x.print_to_string()).collect::<Vec<String>>().join(", ")),
@@ -68,6 +75,12 @@ impl Stringify for Command {
             Command::AddInt64(val1, val2) => format!("add_i64 {}, {}", val1.to_string(), val2.to_string()),
             Command::AddFloat32(val1, val2) => format!("add_f32 {}, {}", val1.to_string(), val2.to_string()),
             Command::AddFloat64(val1, val2) => format!("add_f64 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubInt8(val1, val2) => format!("sub_i8 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubInt16(val1, val2) => format!("sub_i16 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubInt32(val1, val2) => format!("sub_i32 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubInt64(val1, val2) => format!("sub_i64 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubFloat32(val1, val2) => format!("sub_f32 {}, {}", val1.to_string(), val2.to_string()),
+            Command::SubFloat64(val1, val2) => format!("sub_f64 {}, {}", val1.to_string(), val2.to_string()),
             Command::Const(val) => val.to_string(),
             Command::Ret(val) => format!("ret {}", val.to_string()),
             Command::Ref(val) => format!("ref {}", val.to_string()),

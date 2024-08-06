@@ -8,6 +8,8 @@ use crate::value::{RawValue, Value, ValueEnum};
 use llvm_sys::core::*;
 use llvm_sys::prelude::{LLVMBuilderRef, LLVMValueRef};
 use std::ffi::{CString};
+use crate::ffi::LLVMBuildGlobalStringWithModule;
+use crate::module::Module;
 use crate::value::float_value::FloatValue;
 use crate::util::to_c_str;
 
@@ -25,15 +27,17 @@ pub struct Builder {
     pub builder: LLVMBuilderRef,
     pub(crate) context: Context,
     pub(crate) entry_block: Option<BasicBlock>,
+    pub module: Module
 }
 
 impl Builder {
-    pub fn new(context: Context) -> Self {
+    pub fn new(context: Context, module: Module) -> Self {
         let builder = unsafe { LLVMCreateBuilderInContext(context.context) };
         Self {
             builder,
             context,
             entry_block: None,
+            module
         }
     }
     
@@ -41,6 +45,7 @@ impl Builder {
     pub fn get_context(&self) -> Context {
         self.context
     }
+    pub fn get_module(&self) -> Module { self.module }
     
     /// Build an integer add instruction
     pub fn build_int_add(
@@ -185,7 +190,7 @@ impl Builder {
     }
 
     pub fn build_store(&self, value: ValueEnum, ptr: PointerValue) {
-        unsafe { llvm_sys::core::LLVMBuildStore(self.builder, value.into(), ptr.as_raw().as_llvm_ref()) };
+        unsafe { LLVMBuildStore(self.builder, value.into(), ptr.as_raw().as_llvm_ref()) };
     }
 
     pub fn build_load(&self, ty: TypeEnum, ptr: PointerValue, name: &str) -> ValueEnum {
@@ -205,7 +210,7 @@ impl Builder {
         let name = to_c_str(name);
         let value = to_c_str(value);
         let value = unsafe {
-            LLVMBuildGlobalString(self.builder, value.as_ptr(), name.as_ptr())
+            LLVMBuildGlobalStringWithModule(self.builder, self.module.module, value.as_ptr(), name.as_ptr())
         };
         value.into()
     }
@@ -215,7 +220,7 @@ impl Builder {
         let mut indices = indices
             .iter().map(|x: &IntValue| x.as_raw().as_llvm_ref()).by_ref().collect::<Vec<LLVMValueRef>>();
         let value = unsafe {
-            llvm_sys::core::LLVMBuildGEP2(
+            LLVMBuildGEP2(
                 self.builder,
                 ty.as_raw().as_llvm_ref(),
                 ptr.as_raw().as_llvm_ref(),
@@ -260,6 +265,6 @@ impl Builder {
 
 impl Drop for Builder {
     fn drop(&mut self) {
-        unsafe { llvm_sys::core::LLVMDisposeBuilder(self.builder) }
+        unsafe { LLVMDisposeBuilder(self.builder) }
     }
 }

@@ -6,13 +6,13 @@ use std::ops::AddAssign;
 use std::ops::Index;
 use std::ops::IndexMut;
 
-use mirage_frontend_object::label::{Command, Label, LabelBodyInstr, Value};
-use mirage_frontend_object::meta::Flags;
-use mirage_frontend_object::statements::{External, Global, ModuleDecl, Statement, Target};
 use mirage_frontend_module::Module;
 use mirage_frontend_object::function::{FunctionType, FunctionValue};
-use mirage_frontend_object::{MirageTypeEnum, MirageValueEnum};
+use mirage_frontend_object::label::{Command, Label, LabelBodyInstr, Value};
+use mirage_frontend_object::meta::{Flag, Flags};
+use mirage_frontend_object::statements::{External, Global, ModuleDecl, Statement, Target};
 use mirage_frontend_object::{IntValue, MirageObject, RegisterType, RegisterValue};
+use mirage_frontend_object::{MirageTypeEnum, MirageValueEnum};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuilderError {
@@ -23,7 +23,7 @@ pub enum BuilderError {
     ExpectConstValue,
     DifferentSize,
     InternalError(String),
-    ReturnIsDefined
+    ReturnIsDefined,
 }
 
 type BuilderResult<T> = Result<T, BuilderError>;
@@ -53,7 +53,6 @@ impl Builder {
     }
 
     pub fn set_target_triple(&mut self, os: &str, arch: &str, compiler: &str) {
-
         if self.asts.len() > 1 && self.asts[1].is_target() {
             self.asts.remove(1);
         }
@@ -72,27 +71,28 @@ impl Builder {
     pub fn build_extern(&mut self, name: String, func: FunctionType) {
         self.module.add_function(func.fn_value(name.clone()));
         self.asts
-
-            .push(Statement::External(
-                External::new(name, func),
-            ))
+            .push(Statement::External(External::new(name, func)))
     }
 
     pub fn build_global(&mut self, obj: MirageObject) -> MirageValueEnum {
         let reg = RegisterValue::new(self.index_g, RegisterType::Global, obj.get_type());
         let global = Global::new(reg.print_to_string(), obj.clone());
         self.module.add_global(global.clone());
-        self.asts
-            .push(Statement::Global(Global::new(reg.print_to_string(), obj.clone())));
+        self.asts.push(Statement::Global(Global::new(
+            reg.print_to_string(),
+            obj.clone(),
+        )));
         self.index_g += 1;
         MirageValueEnum::Register(reg)
     }
 
     pub fn build_function(&mut self, func: FunctionValue) {
         self.module.add_function(func.clone());
-        self.asts.push(Statement::Function(
-            func
-        ));
+        self.asts.push(Statement::Function(func));
+    }
+
+    pub fn join_function(&mut self, f: &mut FunctionValue, basic_block: BasicBlock) {
+        f.add_label(basic_block.build());
     }
 }
 
@@ -117,37 +117,60 @@ impl BasicBlock {
         &self.name
     }
 
-    pub fn build_copy(&mut self, global_name: &str) -> BuilderResult<MirageValueEnum> {
-        self.inner.build_copy(global_name)
+    pub fn build_store(&mut self, reg: RegisterValue, value: MirageObject) -> BuilderResult<()> {
+        self.inner.build_store(reg, value)
     }
 
     pub fn build_const(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
         self.inner.build_const(val)
     }
 
-    pub fn build_int_add(&mut self, lhs: IntValue, rhs: IntValue) -> BuilderResult<MirageValueEnum> {
+    pub fn build_int_add(
+        &mut self,
+        lhs: IntValue,
+        rhs: IntValue,
+    ) -> BuilderResult<MirageValueEnum> {
         self.inner.build_int_add(lhs, rhs)
     }
-    
-    pub fn build_call(&mut self, f_name: String, args: Vec<MirageValueEnum>) -> BuilderResult<MirageValueEnum> {
+
+    pub fn build_int_sub(
+        &mut self,
+        lhs: IntValue,
+        rhs: IntValue,
+    ) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_int_sub(lhs, rhs)
+    }
+
+    pub fn build_call(
+        &mut self,
+        f_name: String,
+        args: Vec<MirageValueEnum>,
+    ) -> BuilderResult<MirageValueEnum> {
         self.inner.build_call(f_name, args)
     }
 
     pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
         self.inner.build_ret(val)
     }
-    
+
     pub fn build_ref(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
         self.inner.build_ref(val)
     }
-    
-    pub fn build_load(&mut self, ty: MirageTypeEnum, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+
+    pub fn build_load(
+        &mut self,
+        ty: MirageTypeEnum,
+        val: MirageValueEnum,
+    ) -> BuilderResult<MirageValueEnum> {
         self.inner.build_load(ty, val)
     }
 
-
     pub fn build(&self) -> Label {
         self.inner.block.clone()
+    }
+
+    pub fn pop_instr(&mut self) -> Option<LabelBodyInstr> {
+        self.inner.pop_instr()
     }
 }
 
@@ -171,37 +194,24 @@ impl BasicBlockBuilder {
         }
     }
 
-    fn build_copy(&mut self, global_name: &str) -> BuilderResult<MirageValueEnum> {
+    fn build_store(&mut self, reg: RegisterValue, value: MirageObject) -> BuilderResult<()> {
         self.check_return()?;
-        if self.inner.module.get_global(global_name).is_none() {
-            return Err(BuilderError::GlobalNotFound(global_name.to_string()));
-        }
-        let global = self.inner.module.get_global(global_name).unwrap();
-        let ty = global.value.get_type();
-
-        let memory = RegisterValue::new(self.index_v, RegisterType::Variable, ty);
-        self.index_v += 1;
-
-        self.block.body.push(LabelBodyInstr::Assign(
-            memory.clone(),
-            Box::new(LabelBodyInstr::Command(Command::Copy(global_name.into()))),
-        ));
-
-        Ok(memory.to_mirage_value())
+        self.block.body.push(LabelBodyInstr::Command(Command::Store(
+            reg,
+            Value::ConstValue(value),
+        )));
+        Ok(())
     }
 
     pub fn build_const(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         if let Some(c) = val.expect_const_value() {
-
             let memory = RegisterValue::new(self.index_r, RegisterType::Register, c.get_type());
             self.index_r += 1;
             let const_value = MirageObject::from(c);
             self.block.body.push(LabelBodyInstr::Assign(
                 memory.clone(),
-                Box::new(LabelBodyInstr::Command(Command::Const(
-                    const_value
-                ))),
+                Box::new(LabelBodyInstr::Command(Command::Const(const_value))),
             ));
             Ok(memory.to_mirage_value())
         } else {
@@ -222,7 +232,7 @@ impl BasicBlockBuilder {
             .to_mirage_value()
             .try_into()
             .map_err(|e| BuilderError::InternalError(e))?;
-        let memory= RegisterValue::new(self.index_r, RegisterType::Register, ty);
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty);
         self.index_r += 1;
 
         if lhs.get_max_bits() != rhs.get_max_bits() {
@@ -230,30 +240,10 @@ impl BasicBlockBuilder {
         }
 
         let command = match lhs.get_max_bits() {
-            8 => {
-                Command::AddInt8(
-                    lhs_value,
-                    rhs_value,
-                )
-            },
-            16 => {
-                Command::AddInt16(
-                    lhs_value,
-                    rhs_value,
-                )
-            },
-            32 => {
-                Command::AddInt32(
-                    lhs_value,
-                    rhs_value,
-                )
-            },
-            64 => {
-                Command::AddInt64(
-                    lhs_value,
-                    rhs_value,
-                )
-            },
+            8 => Command::AddInt8(lhs_value, rhs_value),
+            16 => Command::AddInt16(lhs_value, rhs_value),
+            32 => Command::AddInt32(lhs_value, rhs_value),
+            64 => Command::AddInt64(lhs_value, rhs_value),
             _ => {
                 return Err(BuilderError::DifferentSize);
             }
@@ -265,15 +255,64 @@ impl BasicBlockBuilder {
         ));
         Ok(memory.to_mirage_value())
     }
-    
-    pub fn build_call(&mut self, f_name: String, args: Vec<MirageValueEnum>) -> BuilderResult<MirageValueEnum> {
+
+    fn build_int_sub(&mut self, lhs: IntValue, rhs: IntValue) -> BuilderResult<MirageValueEnum> {
+        self.check_return()?;
+        let ty = lhs.to_mirage_value().get_type();
+
+        let lhs_value = lhs
+            .to_mirage_value()
+            .try_into()
+            .map_err(|e| BuilderError::InternalError(e))?;
+
+        let rhs_value = rhs
+            .to_mirage_value()
+            .try_into()
+            .map_err(|e| BuilderError::InternalError(e))?;
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty);
+        self.index_r += 1;
+
+        if lhs.get_max_bits() != rhs.get_max_bits() {
+            return Err(BuilderError::DifferentSize);
+        }
+
+        let command = match lhs.get_max_bits() {
+            8 => Command::SubInt8(lhs_value, rhs_value),
+            16 => Command::SubInt16(lhs_value, rhs_value),
+            32 => Command::SubInt32(lhs_value, rhs_value),
+            64 => Command::SubInt64(lhs_value, rhs_value),
+            _ => {
+                return Err(BuilderError::DifferentSize);
+            }
+        };
+
+        self.block.body.push(LabelBodyInstr::Assign(
+            memory.clone(),
+            Box::new(LabelBodyInstr::Command(command)),
+        ));
+        Ok(memory.to_mirage_value())
+    }
+
+    pub fn build_call(
+        &mut self,
+        f_name: String,
+        args: Vec<MirageValueEnum>,
+    ) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         let mut args = args
             .iter()
-            .map(|x| Value::ConstValue(MirageObject::from(x.clone())) )
+            .map(|x| Value::ConstValue(MirageObject::from(x.clone())))
             .collect::<Vec<Value>>();
-        let func = self.inner.module.get_function(&f_name).ok_or(BuilderError::FunctionNotFound(f_name.clone()))?;
-        let memory = RegisterValue::new(self.index_r, RegisterType::Register, func.get_type().get_ret().clone());
+        let func = self
+            .inner
+            .module
+            .get_function(&f_name)
+            .ok_or(BuilderError::FunctionNotFound(f_name.clone()))?;
+        let memory = RegisterValue::new(
+            self.index_r,
+            RegisterType::Register,
+            func.get_type().get_ret().clone(),
+        );
         self.index_r += 1;
         self.block.body.push(LabelBodyInstr::Assign(
             memory.clone(),
@@ -288,12 +327,12 @@ impl BasicBlockBuilder {
         }
         self.is_return = true;
         let value = val.try_into().map_err(|e| BuilderError::InternalError(e))?;
-        self.block.body.push(LabelBodyInstr::Command(
-            Command::Ret(value)
-        ));
+        self.block
+            .body
+            .push(LabelBodyInstr::Command(Command::Ret(value)));
         Ok(())
     }
-    
+
     pub fn build_ref(&mut self, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         let ty = MirageTypeEnum::type_ptr(val.get_type()).into();
@@ -305,11 +344,15 @@ impl BasicBlockBuilder {
             Box::new(LabelBodyInstr::Command(Command::Ref(val))),
         ));
         Ok(memory.to_mirage_value())
-    } 
-    
-    pub fn build_load(&mut self, ty: MirageTypeEnum, val: MirageValueEnum) -> BuilderResult<MirageValueEnum> {
+    }
+
+    pub fn build_load(
+        &mut self,
+        ty: MirageTypeEnum,
+        val: MirageValueEnum,
+    ) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
-        
+
         let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty.clone());
         let val = val.try_into().map_err(|x| BuilderError::InternalError(x))?;
         self.index_r += 1;
@@ -327,9 +370,12 @@ impl BasicBlockBuilder {
             Ok(())
         }
     }
-    
+
     fn dump(&self) {
         println!("{:?}", self.block);
     }
-    
+
+    fn pop_instr(&mut self) -> Option<LabelBodyInstr> {
+        self.block.body.pop()
+    }
 }

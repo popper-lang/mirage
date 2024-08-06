@@ -1,4 +1,6 @@
 use crate::{ArrayType, MirageTypeEnum, PointerType};
+use crate::meta::{Flag, Flags};
+use crate::stringify::Stringify;
 use crate::types::{
     Int8Type,
     Int16Type,
@@ -342,11 +344,12 @@ impl From<PointerValue> for MirageValueEnum {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq,  Hash)]
+#[derive(Debug, Clone,  Eq, Hash)]
 pub struct RegisterValue {
     pub index: usize,
     pub register_type: RegisterType,
-    pub ty: MirageTypeEnum
+    pub ty: MirageTypeEnum,
+    pub flags: Flags
 }
 
 impl RegisterValue {
@@ -354,7 +357,8 @@ impl RegisterValue {
         Self {
             index,
             register_type,
-            ty
+            ty,
+            flags: Flags::new(Vec::new())
         }
     }
 
@@ -363,13 +367,29 @@ impl RegisterValue {
     }
 
     pub fn print_to_string(&self) -> String {
-        format!("{}{}", self.register_type.print_to_string(), self.index)
+        format!("{}{}{}", self.register_type.print_to_string(), self.index, self.flags.to_string())
     }
 
     pub fn to_mirage_value(&self) -> MirageValueEnum {
         MirageValueEnum::Register(self.clone())
     }
+    
+    pub fn add_flag(&mut self, flag: Flag) {
+        self.flags.push(flag);
+    }
+    
+    pub fn contains_flag(&self, flag: &Flag) -> bool {
+        self.flags.contains(flag)
+    }
+    
 }
+
+impl PartialEq for RegisterValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index && self.register_type == other.register_type
+    }
+}
+
 
 impl From<RegisterValue> for MirageValueEnum {
     fn from(value: RegisterValue) -> Self {

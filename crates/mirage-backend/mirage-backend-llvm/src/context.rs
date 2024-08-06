@@ -38,8 +38,8 @@ impl Context {
         Module::new(name, *self)
     }
 
-    pub fn new_builder(&self) -> Builder {
-         Builder::new(*self)
+    pub fn new_builder(&self, module: Module) -> Builder {
+         Builder::new(*self, module)
     }
     
     pub fn i1_type(&self) -> int_types::IntType {

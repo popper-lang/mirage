@@ -1,10 +1,4 @@
-use crate::{
-    util::List,
-    stringify::Stringify,
-    MirageObject,
-    MirageValueEnum,
-    RegisterValue
-};
+use crate::{util::List, stringify::Stringify, MirageObject, MirageValueEnum, RegisterValue, MirageTypeEnum};
 
 
 
@@ -13,6 +7,16 @@ pub enum Value {
     ConstValue(MirageObject),
     Register(RegisterValue),
     List(List<Value>)
+}
+
+impl Value {
+    pub fn get_type(&self) -> MirageTypeEnum {
+        match self {
+            Value::ConstValue(val) => val.get_type(),
+            Value::Register(mem) => mem.get_type(),
+            Value::List(list) => panic!("Cannot get type of list")
+        }
+    }
 }
 
 impl Stringify for Value {

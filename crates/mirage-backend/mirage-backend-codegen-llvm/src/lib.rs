@@ -1,3 +1,5 @@
+mod string;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -10,10 +12,12 @@ use mirage_backend_llvm::target::{CodeGenFileType, CodeModel, OptimizationLevel,
 use mirage_backend_llvm::types::{Type, TypeBuilder, TypeEnum};
 use mirage_backend_llvm::types::struct_type::StructType;
 use mirage_backend_llvm::value::ValueEnum;
+use mirage_backend_llvm::value::function_value::FunctionValue as LLVMFunctionValue;
 use mirage_backend_output::{CompilerOutput, ExecutionEngineOutput, ObjectOutput};
 use mirage_frontend::object::function::FunctionValue;
 use mirage_frontend::object::label::{Command, LabelBodyInstr, Value};
-use mirage_frontend::object::{MirageObject, MirageTypeEnum, MirageValueEnum, RegisterValue};
+use mirage_frontend::object::{MirageObject, MirageTypeEnum, MirageValueEnum, RegisterType, RegisterValue};
+use mirage_frontend::object::meta::Flag;
 use mirage_frontend::object::statements::{External, Statement, TypeDef};
 
 
@@ -32,7 +36,7 @@ pub enum CompilerError {
 type CompilerResult<T> = Result<T, CompilerError>;
 
 
-/// The LLVM Compiler struct 
+/// The LLVM Compiler struct
 #[derive(Debug, Clone)]
 pub struct Compiler {
     context: Context,
@@ -40,7 +44,9 @@ pub struct Compiler {
     builder: Builder,
     stmts: Vec<Statement>,
     env: HashMap<RegisterValue, ValueEnum>,
-    struct_env: HashMap<String, StructType>
+    fn_env: HashMap<String, LLVMFunctionValue>,
+    struct_env: HashMap<String, StructType>,
+    index_g: usize,
 }
 
 impl Compiler {
@@ -59,6 +65,10 @@ impl Compiler {
             MirageTypeEnum::Float32(_) => self.context.float_type().to_type_enum(),
             MirageTypeEnum::Float64(_) => self.context.float_type().to_type_enum(),
             MirageTypeEnum::Array(t) => {
+                let ta: MirageTypeEnum = t.clone().into();
+                if ta.is_string() {
+                    return self.context.i8_type().ptr().to_type_enum();
+                }
                 let element_ty = self.mirage_ty_to_llvm_ty(t.element_ty());
                 let length = t.length();
                 element_ty.array(length as u64).to_type_enum()
@@ -86,7 +96,7 @@ impl Compiler {
         };
 
 
-        let builder = context.new_builder();
+        let builder = context.new_builder(module);
 
 
 
@@ -96,7 +106,9 @@ impl Compiler {
             builder,
             stmts,
             env: HashMap::new(),
-            struct_env: HashMap::new()
+            struct_env: HashMap::new(),
+            fn_env: HashMap::new(),
+            index_g: 0
         })
     }
 
@@ -120,13 +132,15 @@ impl Compiler {
             },
             Statement::Global(global) => {
                 let obj = global.value.clone();
-                let ty = self.mirage_ty_to_llvm_ty(obj.get_type());
                 if !obj.get_type().is_string() {
                     panic!("Global value who arent string doesn't work right now")
                 }
                 let s = global.value.get_value().try_to_rust_string().unwrap();
-                
-                self.builder.build_global_string(&global.name, &s);
+                let s = string::to_string_with_special_char(&s);
+                let s = self.builder.build_global_string(&global.name, &s);
+                let reg = RegisterValue::new(self.index_g, RegisterType::Global, obj.get_type());
+                self.index_g += 1;
+                self.env.insert(reg, s);
             }
             _ => {}
         }
@@ -144,7 +158,8 @@ impl Compiler {
         let args: Vec<_> = fn_ty.get_args().iter().map(|ty| self.mirage_ty_to_llvm_ty(ty.clone())).collect();
         let ret = self.mirage_ty_to_llvm_ty(fn_ty.get_ret().clone());
         let fn_ty = ret.func(args, fn_ty.is_var_arg());
-        self.module.add_function(&external.name, fn_ty);
+        let f = self.module.add_function(&external.name, fn_ty);
+        self.fn_env.insert(external.name, f);
     }
 
 
@@ -163,6 +178,7 @@ impl Compiler {
 
         let fn_ty = ret_ty.func(args_ty, func.get_type().is_var_arg());
         let fn_value = self.module.add_function(func.get_name(), fn_ty);
+        self.fn_env.insert(func.get_name().clone(), fn_value);
         for label in func.get_labels() {
             let bb = self.context.append_basic_block(&label.name, fn_value);
             self.builder.position_at_end(bb);
@@ -187,9 +203,9 @@ impl Compiler {
                 None
             },
             LabelBodyInstr::Call(f, args) => {
-                let fn_value = self.module.get_function(f).unwrap();
+                let fn_value = self.fn_env.get(f).unwrap().clone();
                 let args: Vec<_> = args.iter().map(|arg| self.compile_value(arg)).collect();
-                self.builder.build_call(fn_value, &args, &format!("{}.call.", f))
+                self.builder.build_call(fn_value, &args, "")
             },
             _ => None
         }
@@ -210,6 +226,13 @@ impl Compiler {
                 }
 
                 Some(ptr.to_value_enum())
+            },
+            
+            Command::Store(r, v) => {
+                let r = self.compile_register_value(r);
+                let v = self.compile_value(&v);
+                self.builder.build_store(v, r.into_ptr_value());
+                None
             },
             Command::Const(v) => {
                 Some(self.compile_object(v))
@@ -245,6 +268,27 @@ impl Compiler {
                 Some(self.builder.build_float_add(v1, v2,  ""))
             },
 
+            Command::SubInt8(v1, v2) => {
+                let v1 = self.compile_value(&v1).into_int_value();
+                let v2 = self.compile_value(&v2).into_int_value();
+                Some(self.builder.build_int_sub(v1, v2, MathOpType::None, ""))
+            },
+            Command::SubInt16(v1, v2) => {
+                let v1 = self.compile_value(&v1).into_int_value();
+                let v2 = self.compile_value(&v2).into_int_value();
+                Some(self.builder.build_int_sub(v1, v2, MathOpType::None, ""))
+            },
+            Command::SubInt32(v1, v2) => {
+                let v1 = self.compile_value(&v1).into_int_value();
+                let v2 = self.compile_value(&v2).into_int_value();
+                Some(self.builder.build_int_sub(v1, v2, MathOpType::None, ""))
+            },
+            Command::SubInt64(v1, v2) => {
+                let v1 = self.compile_value(&v1).into_int_value();
+                let v2 = self.compile_value(&v2).into_int_value();
+                Some(self.builder.build_int_sub(v1, v2, MathOpType::None, ""))
+            },
+
             Command::IncrInt8(v) => {
                 let v = self.compile_register_value(v).into_int_value();
                 Some(self.builder.build_int_add(v, self.context.i8_type().int(1, false), MathOpType::None, ""))
@@ -275,6 +319,21 @@ impl Compiler {
                 self.builder.build_ret(Some(v));
                 None
             },
+            Command::Ref(v) => {
+                let value = self.compile_value(&v);
+                let ty = v.get_type();
+                let ty = self.mirage_ty_to_llvm_ty(ty);
+                let ptr = self.builder.build_alloca(ty, "");
+
+                self.builder.build_store(value, ptr);
+                Some(ptr.to_value_enum())
+            },
+            Command::Load(ty, v) => {
+                let value = self.compile_value(&v);
+                let ty = self.mirage_ty_to_llvm_ty(ty);
+
+                Some(self.builder.build_load(ty, value.into_ptr_value(), ""))
+            }
             _ => todo!()
         }
     }
@@ -302,12 +361,12 @@ impl Compiler {
             MirageValueEnum::Float32(v) => self.context.float_type().float(v.value as f64).to_value_enum(),
             MirageValueEnum::Float64(v) => self.context.float_type().float(v.value).to_value_enum(),
             MirageValueEnum::Array(a) => {
-                let elts = a.values.iter().map(|x| 
+                let elts = a.values.iter().map(|x|
                     self.compile_object(
                         MirageObject::new(x.clone(), a.ty.clone().into())
                     )
                 ).collect::<Vec<_>>();
-                
+
                 let ty = self.mirage_ty_to_llvm_ty(a.ty.clone().into());
                 ty.into_array_type().const_array(&elts).to_value_enum()
             },
@@ -317,14 +376,17 @@ impl Compiler {
 
     fn compile_register_value(&mut self, val: RegisterValue) -> ValueEnum {
         let ty = self.mirage_ty_to_llvm_ty(val.get_type());
-        let ptr = self.env.get(&val).unwrap().into_ptr_value();
+        let ptr = self.env.get(self.env.keys().find(|x| x == &&val).unwrap()).unwrap().into_ptr_value();
+        if val.ty.is_string() || val.contains_flag(&Flag::not_loadable()) {
+            return ptr.to_value_enum();
+        }
         self.builder.build_load(ty, ptr, "")
     }
 
     pub fn dump(&self) {
         self.module.dump();
     }
-    
+
     pub fn print_to_string(&self) -> String {
         self.module.print_to_string()
     }
