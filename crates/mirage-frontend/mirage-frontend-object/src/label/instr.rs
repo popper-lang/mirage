@@ -1,7 +1,7 @@
-use crate::stringify::Stringify;
 use super::value::Value;
-use crate::{IntValue, MirageObject, MirageTypeEnum, MirageValueEnum, RegisterValue};
+use crate::stringify::Stringify;
 use crate::util::List;
+use crate::{IntValue, MirageObject, MirageTypeEnum, MirageValueEnum, RegisterValue};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LabelBodyInstr {
@@ -13,13 +13,21 @@ pub enum LabelBodyInstr {
 impl Stringify for LabelBodyInstr {
     fn to_string(&self) -> String {
         match self {
-            LabelBodyInstr::Assign(mem, instr) => format!("{} = {}", mem.print_to_string(), instr.to_string()),
-            LabelBodyInstr::Call(name, args) => format!("{} {{ {} }}", name, args.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", ")),
-            LabelBodyInstr::Command(command) => command.to_string()
+            LabelBodyInstr::Assign(mem, instr) => {
+                format!("{} = {}", mem.print_to_string(), instr.to_string())
+            }
+            LabelBodyInstr::Call(name, args) => format!(
+                "{} {{ {} }}",
+                name,
+                args.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            LabelBodyInstr::Command(command) => command.to_string(),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
@@ -49,43 +57,85 @@ pub enum Command {
     SubInt64(Value, Value),
     SubFloat32(Value, Value),
     SubFloat64(Value, Value),
-
     Ref(Value),
-    Load(MirageTypeEnum, Value)
+    Load(MirageTypeEnum, Value),
+    GetElementPtr(MirageTypeEnum, Value, Vec<Value>),
 }
 
 impl Stringify for Command {
     fn to_string(&self) -> String {
         match self {
-            Command::Store(mem, val) => format!("store {}, {}", mem.print_to_string(), val.to_string()),
+            Command::Store(mem, val) => {
+                format!("store {}, {}", mem.print_to_string(), val.to_string())
+            }
             Command::New(name, args) => format!("new {}, {}", name, args.to_string()),
             Command::Get(mem, index) => format!("get {}, {}", mem.print_to_string(), index),
-            Command::Free(mems) => format!("free {}", mems.iter().map(|x| x.print_to_string()).collect::<Vec<String>>().join(", ")),
+            Command::Free(mems) => format!(
+                "free {}",
+                mems.iter()
+                    .map(|x| x.print_to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Command::Jump(name) => format!("jump {}", name),
-            Command::Jeq(name, mem, val) => format!("jeq {}, {}, {}", name, mem.to_string(), val.to_string()),
+            Command::Jeq(name, mem, val) => {
+                format!("jeq {}, {}, {}", name, mem.to_string(), val.to_string())
+            }
             Command::IncrInt8(mem) => format!("incr_i8 {}", mem.print_to_string()),
             Command::IncrInt16(mem) => format!("incr_i16 {}", mem.print_to_string()),
             Command::IncrInt32(mem) => format!("incr_i32 {}", mem.print_to_string()),
             Command::IncrInt64(mem) => format!("incr_i64 {}", mem.print_to_string()),
             Command::IncrFloat32(mem) => format!("incr_f32 {}", mem.print_to_string()),
             Command::IncrFloat64(mem) => format!("incr_f64 {}", mem.print_to_string()),
-            Command::AddInt8(val1, val2) => format!("add_i8 {}, {}", val1.to_string(), val2.to_string()),
-            Command::AddInt16(val1, val2) => format!("add_i16 {}, {}", val1.to_string(), val2.to_string()),
-            Command::AddInt32(val1, val2) => format!("add_i32 {}, {}", val1.to_string(), val2.to_string()),
-            Command::AddInt64(val1, val2) => format!("add_i64 {}, {}", val1.to_string(), val2.to_string()),
-            Command::AddFloat32(val1, val2) => format!("add_f32 {}, {}", val1.to_string(), val2.to_string()),
-            Command::AddFloat64(val1, val2) => format!("add_f64 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubInt8(val1, val2) => format!("sub_i8 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubInt16(val1, val2) => format!("sub_i16 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubInt32(val1, val2) => format!("sub_i32 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubInt64(val1, val2) => format!("sub_i64 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubFloat32(val1, val2) => format!("sub_f32 {}, {}", val1.to_string(), val2.to_string()),
-            Command::SubFloat64(val1, val2) => format!("sub_f64 {}, {}", val1.to_string(), val2.to_string()),
+            Command::AddInt8(val1, val2) => {
+                format!("add_i8 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::AddInt16(val1, val2) => {
+                format!("add_i16 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::AddInt32(val1, val2) => {
+                format!("add_i32 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::AddInt64(val1, val2) => {
+                format!("add_i64 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::AddFloat32(val1, val2) => {
+                format!("add_f32 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::AddFloat64(val1, val2) => {
+                format!("add_f64 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubInt8(val1, val2) => {
+                format!("sub_i8 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubInt16(val1, val2) => {
+                format!("sub_i16 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubInt32(val1, val2) => {
+                format!("sub_i32 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubInt64(val1, val2) => {
+                format!("sub_i64 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubFloat32(val1, val2) => {
+                format!("sub_f32 {}, {}", val1.to_string(), val2.to_string())
+            }
+            Command::SubFloat64(val1, val2) => {
+                format!("sub_f64 {}, {}", val1.to_string(), val2.to_string())
+            }
             Command::Const(val) => val.to_string(),
             Command::Ret(val) => format!("ret {}", val.to_string()),
             Command::Ref(val) => format!("ref {}", val.to_string()),
-            Command::Load(ty, val) => format!("load {}, {}", ty.print_to_string(), val.to_string())
-
+            Command::Load(ty, val) => format!("load {}, {}", ty.print_to_string(), val.to_string()),
+            Command::GetElementPtr(ty, mem, val) => format!(
+                "getelementptr {}, {}, {}",
+                ty.print_to_string(),
+                mem.to_string(),
+                val.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            ),
         }
     }
 }
@@ -96,21 +146,21 @@ pub fn add(lhs: IntValue, rhs: IntValue) -> Command {
     match lhs.get_max_bits() {
         8 => Command::AddInt8(
             lhs.to_mirage_value().try_into().unwrap(),
-            lhs.to_mirage_value().try_into().unwrap()
+            lhs.to_mirage_value().try_into().unwrap(),
         ),
         16 => Command::AddInt16(
             lhs.to_mirage_value().try_into().unwrap(),
-            lhs.to_mirage_value().try_into().unwrap()
+            lhs.to_mirage_value().try_into().unwrap(),
         ),
         32 => Command::AddInt32(
             lhs.to_mirage_value().try_into().unwrap(),
-            lhs.to_mirage_value().try_into().unwrap()
+            lhs.to_mirage_value().try_into().unwrap(),
         ),
         64 => Command::AddInt64(
             lhs.to_mirage_value().try_into().unwrap(),
-            lhs.to_mirage_value().try_into().unwrap()
+            lhs.to_mirage_value().try_into().unwrap(),
         ),
-        _ => panic!("Invalid bit size")
+        _ => panic!("Invalid bit size"),
     }
 }
 
@@ -120,7 +170,7 @@ pub fn incr(val: RegisterValue) -> Command {
         match ty.get_max_bits() {
             32 => Command::IncrFloat32(val),
             64 => Command::IncrFloat64(val),
-            _ => panic!("Invalid bit size")
+            _ => panic!("Invalid bit size"),
         }
     } else {
         match ty.get_max_bits() {
@@ -128,7 +178,7 @@ pub fn incr(val: RegisterValue) -> Command {
             16 => Command::IncrInt16(val),
             32 => Command::IncrInt32(val),
             64 => Command::IncrInt64(val),
-            _ => panic!("Invalid bit size")
+            _ => panic!("Invalid bit size"),
         }
     }
 }

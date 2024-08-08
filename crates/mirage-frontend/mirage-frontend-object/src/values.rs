@@ -1,32 +1,24 @@
-use crate::{ArrayType, MirageTypeEnum, PointerType};
 use crate::meta::{Flag, Flags};
 use crate::stringify::Stringify;
 use crate::types::{
-    Int8Type,
-    Int16Type,
-    Int32Type,
-    Int64Type,
-    UInt8Type,
-    UInt16Type,
-    UInt32Type,
-    UInt64Type,
-    Float32Type,
-    Float64Type
+    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
+use crate::{ArrayType, MirageTypeEnum, PointerType, StructType};
 
 macro_rules! new_value {
     ($name:ident[$mn:ident] : $t:ty[$c:ty]) => {
         #[derive(Debug, Clone, Copy, PartialEq)]
         pub struct $name {
             pub ty: $t,
-            pub value: $c
+            pub value: $c,
         }
 
         impl $name {
             pub fn new(value: $c) -> Self {
                 Self {
                     ty: <$t>::new(),
-                    value
+                    value,
                 }
             }
 
@@ -55,7 +47,8 @@ pub enum MirageValueEnum {
     Float64(Float64Value),
     Array(ArrayValue),
     Pointer(PointerValue),
-    Register(RegisterValue)
+    Register(RegisterValue),
+    Struct(StructValue),
 }
 
 impl MirageValueEnum {
@@ -73,7 +66,8 @@ impl MirageValueEnum {
             MirageValueEnum::Float64(v) => v.ty.into(),
             MirageValueEnum::Array(v) => MirageTypeEnum::Array(v.ty.clone()),
             MirageValueEnum::Register(index) => index.ty.clone(),
-            MirageValueEnum::Pointer(ty) => MirageTypeEnum::Pointer(ty.ty.clone())
+            MirageValueEnum::Pointer(ty) => MirageTypeEnum::Pointer(ty.ty.clone()),
+            MirageValueEnum::Struct(v) => MirageTypeEnum::Struct(v.ty.clone()),
         }
     }
 
@@ -81,14 +75,14 @@ impl MirageValueEnum {
         match self {
             MirageValueEnum::Register(_) => None,
             MirageValueEnum::Pointer(_) => None,
-            _ => Some(self.clone())
+            _ => Some(self.clone()),
         }
     }
 
     pub fn expect_register_value(&self) -> Option<RegisterValue> {
         match self {
             MirageValueEnum::Register(e) => Some(e.clone()),
-            _ => None
+            _ => None,
         }
     }
 
@@ -105,10 +99,10 @@ impl MirageValueEnum {
                     None
                 }
             }
-            _ => None
+            _ => None,
         }
     }
-    
+
     pub fn try_to_rust_string(&self) -> Option<String> {
         if !self.get_type().is_string() {
             return None;
@@ -120,12 +114,11 @@ impl MirageValueEnum {
                     let c = c.expect_int_value().unwrap().expect_int8_value();
                     s.push(c.value as u8);
                 }
-                
+
                 Some(String::from_utf8(s).unwrap())
-            },
-            _ => None
+            }
+            _ => None,
         }
-        
     }
 
     pub fn print_to_string(&self) -> String {
@@ -142,10 +135,10 @@ impl MirageValueEnum {
             MirageValueEnum::Float64(v) => v.print_to_string(),
             MirageValueEnum::Array(v) => v.print_to_string(),
             MirageValueEnum::Pointer(v) => v.print_to_string(),
-            MirageValueEnum::Register(v) => v.print_to_string()
+            MirageValueEnum::Register(v) => v.print_to_string(),
+            MirageValueEnum::Struct(v) => v.print_to_string(),
         }
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,46 +147,45 @@ pub enum IntValue {
     Int16(Int16Value),
     Int32(Int32Value),
     Int64(Int64Value),
-    Register(RegisterValue)
+    Register(RegisterValue),
 }
 
 impl IntValue {
-    
     pub fn expect_int8_value(&self) -> Int8Value {
-        match self { 
+        match self {
             IntValue::Int8(e) => e.clone(),
-            e => panic!("expect int8 type got {:?}", e)
+            e => panic!("expect int8 type got {:?}", e),
         }
     }
-    
+
     pub fn expect_int16_value(&self) -> Int16Value {
-        match self { 
+        match self {
             IntValue::Int16(e) => e.clone(),
-            e => panic!("expect int16 type got {:?}", e)
+            e => panic!("expect int16 type got {:?}", e),
         }
     }
-    
+
     pub fn expect_int32_value(&self) -> Int32Value {
-        match self { 
+        match self {
             IntValue::Int32(e) => e.clone(),
-            e => panic!("expect int32 type got {:?}", e)
+            e => panic!("expect int32 type got {:?}", e),
         }
     }
-    
+
     pub fn expect_int64_value(&self) -> Int64Value {
-        match self { 
+        match self {
             IntValue::Int64(e) => e.clone(),
-            e => panic!("expect int64 type got {:?}", e)
+            e => panic!("expect int64 type got {:?}", e),
         }
     }
-    
+
     pub fn get_mem_size(&self) -> usize {
         match self {
             IntValue::Int8(_) => 1,
             IntValue::Int16(_) => 2,
             IntValue::Int32(_) => 4,
             IntValue::Int64(_) => 8,
-            IntValue::Register(_) => 8
+            IntValue::Register(_) => 8,
         }
     }
 
@@ -203,7 +195,7 @@ impl IntValue {
             IntValue::Int16(_) => 16,
             IntValue::Int32(_) => 32,
             IntValue::Int64(_) => 64,
-            IntValue::Register(e) => e.get_type().size().size() * 8
+            IntValue::Register(e) => e.get_type().size().size() * 8,
         }
     }
 
@@ -213,11 +205,9 @@ impl IntValue {
             IntValue::Int16(v) => MirageValueEnum::Int16(*v),
             IntValue::Int32(v) => MirageValueEnum::Int32(*v),
             IntValue::Int64(v) => MirageValueEnum::Int64(*v),
-            IntValue::Register(v) => MirageValueEnum::Register(v.clone())
+            IntValue::Register(v) => MirageValueEnum::Register(v.clone()),
         }
     }
-
-
 }
 
 new_value!(Int8Value[Int8]: Int8Type[i8]);
@@ -225,13 +215,12 @@ new_value!(Int16Value[Int16]: Int16Type[i16]);
 new_value!(Int32Value[Int32]: Int32Type[i32]);
 new_value!(Int64Value[Int64]: Int64Type[i64]);
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UIntValue {
     UInt8(UInt8Value),
     UInt16(UInt16Value),
     UInt32(UInt32Value),
-    UInt64(UInt64Value)
+    UInt64(UInt64Value),
 }
 
 impl Into<MirageValueEnum> for UIntValue {
@@ -240,7 +229,7 @@ impl Into<MirageValueEnum> for UIntValue {
             UIntValue::UInt8(v) => MirageValueEnum::UInt8(v),
             UIntValue::UInt16(v) => MirageValueEnum::UInt16(v),
             UIntValue::UInt32(v) => MirageValueEnum::UInt32(v),
-            UIntValue::UInt64(v) => MirageValueEnum::UInt64(v)
+            UIntValue::UInt64(v) => MirageValueEnum::UInt64(v),
         }
     }
 }
@@ -252,7 +241,7 @@ impl Into<UIntValue> for MirageValueEnum {
             MirageValueEnum::UInt16(v) => UIntValue::UInt16(v),
             MirageValueEnum::UInt32(v) => UIntValue::UInt32(v),
             MirageValueEnum::UInt64(v) => UIntValue::UInt64(v),
-            _ => panic!("Cannot convert {:?} into UIntValue", self)
+            _ => panic!("Cannot convert {:?} into UIntValue", self),
         }
     }
 }
@@ -265,14 +254,14 @@ new_value!(UInt64Value[UInt64]: UInt64Type[u64]);
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FloatValue {
     Float32(Float32Value),
-    Float64(Float64Value)
+    Float64(Float64Value),
 }
 
 impl Into<MirageValueEnum> for FloatValue {
     fn into(self) -> MirageValueEnum {
         match self {
             FloatValue::Float32(v) => MirageValueEnum::Float32(v),
-            FloatValue::Float64(v) => MirageValueEnum::Float64(v)
+            FloatValue::Float64(v) => MirageValueEnum::Float64(v),
         }
     }
 }
@@ -282,7 +271,7 @@ impl Into<FloatValue> for MirageValueEnum {
         match self {
             MirageValueEnum::Float32(v) => FloatValue::Float32(v),
             MirageValueEnum::Float64(v) => FloatValue::Float64(v),
-            _ => panic!("Cannot convert {:?} into FloatValue", self)
+            _ => panic!("Cannot convert {:?} into FloatValue", self),
         }
     }
 }
@@ -293,19 +282,21 @@ new_value!(Float64Value[Float64]: Float64Type[f64]);
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrayValue {
     pub ty: ArrayType,
-    pub values: Vec<MirageValueEnum>
+    pub values: Vec<MirageValueEnum>,
 }
 
 impl ArrayValue {
     pub fn new(ty: ArrayType, values: Vec<MirageValueEnum>) -> Self {
-        Self {
-            ty,
-            values
-        }
+        Self { ty, values }
     }
 
     pub fn print_to_string(&self) -> String {
-        let values = self.values.iter().map(|x| x.print_to_string()).collect::<Vec<_>>().join(", ");
+        let values = self
+            .values
+            .iter()
+            .map(|x| x.print_to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         format!("{} [{}]", self.ty.print_to_string(), values)
     }
 
@@ -318,7 +309,6 @@ impl From<ArrayValue> for MirageValueEnum {
     fn from(value: ArrayValue) -> Self {
         Self::Array(value)
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -328,9 +318,7 @@ pub struct PointerValue {
 
 impl PointerValue {
     pub fn new(ty: PointerType) -> Self {
-        Self {
-            ty
-        }
+        Self { ty }
     }
 
     pub fn print_to_string(&self) -> String {
@@ -344,12 +332,12 @@ impl From<PointerValue> for MirageValueEnum {
     }
 }
 
-#[derive(Debug, Clone,  Eq, Hash)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub struct RegisterValue {
     pub index: usize,
     pub register_type: RegisterType,
     pub ty: MirageTypeEnum,
-    pub flags: Flags
+    pub flags: Flags,
 }
 
 impl RegisterValue {
@@ -358,7 +346,7 @@ impl RegisterValue {
             index,
             register_type,
             ty,
-            flags: Flags::new(Vec::new())
+            flags: Flags::new(Vec::new()),
         }
     }
 
@@ -367,21 +355,25 @@ impl RegisterValue {
     }
 
     pub fn print_to_string(&self) -> String {
-        format!("{}{}{}", self.register_type.print_to_string(), self.index, self.flags.to_string())
+        format!(
+            "{}{}{}",
+            self.register_type.print_to_string(),
+            self.index,
+            self.flags.to_string()
+        )
     }
 
     pub fn to_mirage_value(&self) -> MirageValueEnum {
         MirageValueEnum::Register(self.clone())
     }
-    
+
     pub fn add_flag(&mut self, flag: Flag) {
         self.flags.push(flag);
     }
-    
+
     pub fn contains_flag(&self, flag: &Flag) -> bool {
         self.flags.contains(flag)
     }
-    
 }
 
 impl PartialEq for RegisterValue {
@@ -389,7 +381,6 @@ impl PartialEq for RegisterValue {
         self.index == other.index && self.register_type == other.register_type
     }
 }
-
 
 impl From<RegisterValue> for MirageValueEnum {
     fn from(value: RegisterValue) -> Self {
@@ -402,7 +393,7 @@ pub enum RegisterType {
     Register,
     Variable,
     Argument,
-    Global
+    Global,
 }
 
 impl RegisterType {
@@ -411,8 +402,9 @@ impl RegisterType {
             RegisterType::Register => "r",
             RegisterType::Variable => "v",
             RegisterType::Argument => "arg",
-            RegisterType::Global => "g"
-        }.to_string()
+            RegisterType::Global => "g",
+        }
+        .to_string()
     }
 }
 
@@ -441,7 +433,7 @@ impl TryFrom<&str> for RegisterType {
             "v" => Ok(RegisterType::Variable),
             "arg" => Ok(RegisterType::Argument),
             "g" => Ok(RegisterType::Global),
-            _ => Err(format!("Cannot convert {} into RegisterType", value))
+            _ => Err(format!("Cannot convert {} into RegisterType", value)),
         }
     }
 }
@@ -449,18 +441,45 @@ impl TryFrom<&str> for RegisterType {
 #[macro_export]
 macro_rules! register {
     (@$n:ident r $i:literal) => {
-        $crate::RegisterValue::new($i, $crate::RegisterType::Register, $crate::MirageTypeEnum::from_str(
-            stringify!($n)
-        ).unwrap())
+        $crate::RegisterValue::new(
+            $i,
+            $crate::RegisterType::Register,
+            $crate::MirageTypeEnum::from_str(stringify!($n)).unwrap(),
+        )
     };
     (@$n:ident v $i:literal) => {
-        $crate::RegisterValue::new($i, $crate::RegisterType::Variable, $crate::MirageTypeEnum::from_str(
-            stringify!($n)
-        ).unwrap())
+        $crate::RegisterValue::new(
+            $i,
+            $crate::RegisterType::Variable,
+            $crate::MirageTypeEnum::from_str(stringify!($n)).unwrap(),
+        )
     };
     (@$n:ident arg $i:literal) => {
-        $crate::RegisterValue::new($i, $crate::RegisterType::Argument, $crate::MirageTypeEnum::from_str(
-            stringify!($n)
-        ).unwrap())
+        $crate::RegisterValue::new(
+            $i,
+            $crate::RegisterType::Argument,
+            $crate::MirageTypeEnum::from_str(stringify!($n)).unwrap(),
+        )
     };
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructValue {
+    pub ty: StructType,
+    pub values: Vec<MirageValueEnum>,
+}
+
+impl StructValue {
+    pub fn new(ty: StructType, values: Vec<MirageValueEnum>) -> Self {
+        Self { ty, values }
+    }
+    pub fn print_to_string(&self) -> String {
+        let values = self
+            .values
+            .iter()
+            .map(|x| x.print_to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{} {{ {} }}", self.ty.print_to_string(), values)
+    }
 }

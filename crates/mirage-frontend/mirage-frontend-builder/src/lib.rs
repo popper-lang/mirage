@@ -165,6 +165,16 @@ impl BasicBlock {
         self.inner.build_load(ty, val)
     }
 
+    pub fn build_getelementptr(
+        &mut self,
+        real_ty: MirageTypeEnum,
+        out: MirageTypeEnum,
+        ptr: MirageValueEnum,
+        indices: Vec<MirageValueEnum>,
+    ) -> BuilderResult<MirageValueEnum> {
+        self.inner.build_getelementptr(real_ty, out, ptr, indices)
+    }
+
     pub fn build(&self) -> Label {
         self.inner.block.clone()
     }
@@ -293,7 +303,7 @@ impl BasicBlockBuilder {
         Ok(memory.to_mirage_value())
     }
 
-    pub fn build_call(
+    fn build_call(
         &mut self,
         f_name: String,
         args: Vec<MirageValueEnum>,
@@ -321,7 +331,7 @@ impl BasicBlockBuilder {
         Ok(memory.to_mirage_value())
     }
 
-    pub fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
+    fn build_ret(&mut self, val: MirageValueEnum) -> BuilderResult<()> {
         if self.is_return {
             return Err(BuilderError::ReturnIsDefined);
         }
@@ -346,7 +356,7 @@ impl BasicBlockBuilder {
         Ok(memory.to_mirage_value())
     }
 
-    pub fn build_load(
+    fn build_load(
         &mut self,
         ty: MirageTypeEnum,
         val: MirageValueEnum,
@@ -359,6 +369,32 @@ impl BasicBlockBuilder {
         self.block.body.push(LabelBodyInstr::Assign(
             memory.clone(),
             Box::new(LabelBodyInstr::Command(Command::Load(ty, val))),
+        ));
+        Ok(memory.to_mirage_value())
+    }
+
+    fn build_getelementptr(
+        &mut self,
+        real_ty: MirageTypeEnum,
+        out: MirageTypeEnum,
+        ptr: MirageValueEnum,
+        indices: Vec<MirageValueEnum>,
+    ) -> BuilderResult<MirageValueEnum> {
+        self.check_return()?;
+        let memory = RegisterValue::new(self.index_r, RegisterType::Register, real_ty);
+        let ptr = ptr.try_into().map_err(|x| BuilderError::InternalError(x))?;
+        let indices = indices
+            .iter()
+            .map(|x| x.clone().try_into().unwrap())
+            .collect::<Vec<Value>>();
+        self.index_r += 1;
+        self.block.body.push(LabelBodyInstr::Assign(
+            memory.clone(),
+            Box::new(LabelBodyInstr::Command(Command::GetElementPtr(
+                out,
+                ptr,
+                indices.clone(),
+            ))),
         ));
         Ok(memory.to_mirage_value())
     }
