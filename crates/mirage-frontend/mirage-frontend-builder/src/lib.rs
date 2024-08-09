@@ -107,7 +107,7 @@ impl BasicBlock {
         Self {
             inner: BasicBlockBuilder::new(
                 builder,
-                Label::new(name.clone().into(), Flags::new(vec![]), vec![]),
+                Label::new(name.clone(), Flags::new(vec![]), vec![]),
             ),
             name,
         }

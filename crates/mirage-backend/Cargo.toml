@@ -5,12 +5,13 @@ edition = "2021"
 
 [workspace]
 members = [
-    "mirage-backend-asm",
-    "mirage-backend-codegen-asm",
-    "mirage-backend-codegen-llvm",
-    "mirage-backend-codegen-wasm",
-    "mirage-backend-llvm",
-    "mirage-backend-opti", "mirage-backend-output",
+  "mirage-backend-asm",
+  "mirage-backend-codegen-asm",
+  "mirage-backend-codegen-llvm",
+  "mirage-backend-codegen-wasm",
+  "mirage-backend-llvm",
+  "mirage-backend-opti",
+  "mirage-backend-output",
 ]
 
 [dependencies]
@@ -21,3 +22,4 @@ mirage_backend_opti = { path = "mirage-backend-opti" }
 mirage_backend_llvm = { path = "mirage-backend-llvm" }
 mirage_backend_codegen_llvm = { path = "mirage-backend-codegen-llvm" }
 mirage_backend_codegen_wasm = { path = "mirage-backend-codegen-wasm" }
+mirage_backend_output = { path = "mirage-backend-output" }

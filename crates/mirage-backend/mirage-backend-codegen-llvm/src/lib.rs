@@ -490,7 +490,7 @@ impl Compiler {
                         .into_ptr_value();
                     self.builder.build_store(elt.clone(), gep);
                 }
-
+                self.no_store = true;
                 alloc.to_value_enum()
             }
         }
@@ -536,4 +536,3 @@ impl ExecutionEngineOutput for Compiler {
         execution_engine.get_function(name)
     }
 }
-
