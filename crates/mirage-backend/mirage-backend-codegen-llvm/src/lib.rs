@@ -51,6 +51,7 @@ pub struct Compiler {
     index_g: usize,
     no_store: bool,
     debug: bool,
+    no_load: bool,
 }
 
 impl Compiler {
@@ -126,6 +127,7 @@ impl Compiler {
             index_g: 0,
             no_store: false,
             debug,
+            no_load: false,
         })
     }
 
@@ -216,8 +218,8 @@ impl Compiler {
     ) -> Option<ValueEnum> {
         match instr {
             LabelBodyInstr::Command(c) => self.compile_command(c.clone()),
-            LabelBodyInstr::Assign(r, val) => {
-                let val = self.compile_instr(bb, val).unwrap();
+            LabelBodyInstr::Assign(r, value) => {
+                let val = self.compile_instr(bb, value).unwrap();
                 if self.no_store {
                     self.no_store = false;
                     self.env.insert(r.clone(), val);
@@ -375,13 +377,10 @@ impl Compiler {
                 None
             }
             Command::Ref(v) => {
+                self.no_load = true;
                 let value = self.compile_value(&v);
-                let ty = v.get_type();
-                let ty = self.mirage_ty_to_llvm_ty(ty);
-                let ptr = self.builder.build_alloca(ty, "");
-
-                self.builder.build_store(value, ptr);
-                Some(ptr.to_value_enum())
+                self.no_load = false;
+                Some(value)
             }
             Command::Load(ty, v) => {
                 let value = self.compile_value(&v);
@@ -504,7 +503,7 @@ impl Compiler {
             .get(self.env.keys().find(|x| x == &&val).unwrap())
             .unwrap()
             .into_ptr_value();
-        if val.ty.is_string() || val.contains_flag(&Flag::not_loadable()) {
+        if val.ty.is_string() || val.contains_flag(&Flag::not_loadable()) || self.no_load {
             return ptr.to_value_enum();
         }
         self.builder.build_load(ty, ptr, "")

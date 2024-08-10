@@ -121,6 +121,10 @@ impl MirageValueEnum {
         }
     }
 
+    pub fn is_const(&self) -> bool {
+        !matches!(self, MirageValueEnum::Register(_))
+    }
+
     pub fn print_to_string(&self) -> String {
         match self {
             MirageValueEnum::Int8(v) => v.print_to_string(),
