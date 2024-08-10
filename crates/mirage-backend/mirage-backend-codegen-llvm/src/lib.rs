@@ -201,6 +201,15 @@ impl Compiler {
 
         let fn_ty = ret_ty.func(args_ty, func.get_type().is_var_arg());
         let fn_value = self.module.add_function(func.get_name(), fn_ty);
+
+        for (i, arg) in fn_value.get_all_params().iter().enumerate() {
+            let reg = RegisterValue::new(
+                i,
+                RegisterType::Argument,
+                func.get_type().get_args()[i].clone(),
+            );
+            self.env.insert(reg, arg.clone());
+        }
         self.fn_env.insert(func.get_name().clone(), fn_value);
         for label in func.get_labels() {
             let bb = self.context.append_basic_block(&label.name, fn_value);
@@ -497,12 +506,11 @@ impl Compiler {
 
     fn compile_register_value(&mut self, val: RegisterValue) -> ValueEnum {
         let ty = self.mirage_ty_to_llvm_ty(val.get_type());
-
-        let ptr = self
-            .env
-            .get(self.env.keys().find(|x| x == &&val).unwrap())
-            .unwrap()
-            .into_ptr_value();
+        let ptr = self.env.get(&val).unwrap();
+        if val.register_type == RegisterType::Argument {
+            return *ptr;
+        }
+        let ptr = ptr.into_ptr_value();
         if val.ty.is_string() || val.contains_flag(&Flag::not_loadable()) || self.no_load {
             return ptr.to_value_enum();
         }

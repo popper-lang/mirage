@@ -309,7 +309,7 @@ impl BasicBlockBuilder {
         args: Vec<MirageValueEnum>,
     ) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
-        let mut args = args
+        let args = args
             .iter()
             .map(|x| Value::ConstValue(MirageObject::from(x.clone())))
             .collect::<Vec<Value>>();
@@ -336,7 +336,7 @@ impl BasicBlockBuilder {
             return Err(BuilderError::ReturnIsDefined);
         }
         self.is_return = true;
-        let value = val.try_into().map_err(|e| BuilderError::InternalError(e))?;
+        let value = val.try_into().map_err(BuilderError::InternalError)?;
         self.block
             .body
             .push(LabelBodyInstr::Command(Command::Ret(value)));
@@ -347,7 +347,7 @@ impl BasicBlockBuilder {
         self.check_return()?;
         let ty = MirageTypeEnum::type_ptr(val.get_type()).into();
         let memory = RegisterValue::new(self.index_r, RegisterType::Register, ty);
-        let val = val.try_into().map_err(|x| BuilderError::InternalError(x))?;
+        let val = val.try_into().map_err(BuilderError::InternalError)?;
         self.index_r += 1;
         self.block.body.push(LabelBodyInstr::Assign(
             memory.clone(),
@@ -382,7 +382,7 @@ impl BasicBlockBuilder {
     ) -> BuilderResult<MirageValueEnum> {
         self.check_return()?;
         let memory = RegisterValue::new(self.index_r, RegisterType::Register, real_ty);
-        let ptr = ptr.try_into().map_err(|x| BuilderError::InternalError(x))?;
+        let ptr = ptr.try_into().map_err(BuilderError::InternalError)?;
         let indices = indices
             .iter()
             .map(|x| x.clone().try_into().unwrap())
