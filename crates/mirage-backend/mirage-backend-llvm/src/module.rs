@@ -1,11 +1,11 @@
+use crate::util::to_c_str;
 use llvm_sys::analysis::LLVMVerifyModule;
 use llvm_sys::bit_reader::LLVMParseBitcodeInContext2;
 use llvm_sys::core::*;
 use llvm_sys::linker::LLVMLinkModules2;
 use llvm_sys::prelude::*;
-use std::ffi::CString;
 use llvm_sys::LLVMModuleFlagBehavior;
-use crate::util::to_c_str;
+use std::ffi::CString;
 
 use crate::analysis::FailureAction;
 use crate::context::Context;
@@ -28,7 +28,6 @@ pub enum ModuleFlagBehavior {
     AppendUnique,
 }
 
-
 impl From<LLVMModuleFlagBehavior> for ModuleFlagBehavior {
     fn from(value: LLVMModuleFlagBehavior) -> Self {
         match value {
@@ -37,11 +36,12 @@ impl From<LLVMModuleFlagBehavior> for ModuleFlagBehavior {
             LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorRequire => ModuleFlagBehavior::Require,
             LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorOverride => ModuleFlagBehavior::Override,
             LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppend => ModuleFlagBehavior::Append,
-            LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppendUnique => ModuleFlagBehavior::AppendUnique,
+            LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppendUnique => {
+                ModuleFlagBehavior::AppendUnique
+            }
         }
     }
 }
-
 
 impl From<ModuleFlagBehavior> for LLVMModuleFlagBehavior {
     fn from(value: ModuleFlagBehavior) -> Self {
@@ -51,7 +51,9 @@ impl From<ModuleFlagBehavior> for LLVMModuleFlagBehavior {
             ModuleFlagBehavior::Require => LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorRequire,
             ModuleFlagBehavior::Override => LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorOverride,
             ModuleFlagBehavior::Append => LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppend,
-            ModuleFlagBehavior::AppendUnique => LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppendUnique,
+            ModuleFlagBehavior::AppendUnique => {
+                LLVMModuleFlagBehavior::LLVMModuleFlagBehaviorAppendUnique
+            }
         }
     }
 }
@@ -65,36 +67,31 @@ impl ModuleFlagEntry {
     pub fn new(entry: LLVMModuleFlagEntryRef) -> Self {
         Self { entry }
     }
-    
+
     pub fn get_flag_behavior(&self, index: u32) -> ModuleFlagBehavior {
-        unsafe {
-            LLVMModuleFlagEntriesGetFlagBehavior(self.entry, index).into()
-        }
+        unsafe { LLVMModuleFlagEntriesGetFlagBehavior(self.entry, index).into() }
     }
 
     pub fn get_key(&self, index: u32) -> Option<String> {
         unsafe {
             let mut len = 0;
-            let c_str = ptr_to_option(
-                LLVMModuleFlagEntriesGetKey(self.entry, index, &mut len)
-            )?;
-            Some(std::ffi::CStr::from_ptr(c_str).to_str().unwrap().to_string())
+            let c_str = ptr_to_option(LLVMModuleFlagEntriesGetKey(self.entry, index, &mut len))?;
+            Some(
+                std::ffi::CStr::from_ptr(c_str)
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            )
         }
     }
 
     pub fn get_meta_data(&self, index: u32) -> Option<Metadata> {
-        let meta = unsafe {
-            ptr_to_option(
-                LLVMModuleFlagEntriesGetMetadata(self.entry, index)
-            )?
-        };
+        let meta = unsafe { ptr_to_option(LLVMModuleFlagEntriesGetMetadata(self.entry, index))? };
         Some(Metadata::new(meta))
     }
-
-
 }
 
-#[derive(Debug, Copy)]
+#[derive(Debug, Copy, Clone)]
 pub struct Module {
     pub(crate) module: LLVMModuleRef,
     pub(crate) context: Context,
@@ -158,7 +155,12 @@ impl Module {
     pub fn get_inline_asm(&self) -> String {
         let zero = std::ptr::null_mut();
         let c_str = unsafe { LLVMGetModuleInlineAsm(self.module, zero) };
-        unsafe { std::ffi::CStr::from_ptr(c_str).to_str().unwrap().to_string() }
+        unsafe {
+            std::ffi::CStr::from_ptr(c_str)
+                .to_str()
+                .unwrap()
+                .to_string()
+        }
     }
 
     pub fn set_inline_asm(&self, asm: &str) {
@@ -179,8 +181,13 @@ impl Module {
 
     pub fn add_function(&self, name: &str, function_type: FunctionType) -> FunctionValue {
         let name = to_c_str(name);
-        let function =
-            unsafe { LLVMAddFunction(self.module, name.as_ptr(), function_type.as_raw().as_llvm_ref()) };
+        let function = unsafe {
+            LLVMAddFunction(
+                self.module,
+                name.as_ptr(),
+                function_type.as_raw().as_llvm_ref(),
+            )
+        };
         unsafe { FunctionValue::new_llvm_ref(function, Some(function_type.as_raw().as_llvm_ref())) }
     }
 
@@ -197,11 +204,7 @@ impl Module {
     pub fn verify(&self, action: FailureAction) -> bool {
         unsafe {
             let mut err = std::ptr::null_mut();
-            let result = LLVMVerifyModule(
-                self.module,
-                action.into(),
-                &mut err,
-            );
+            let result = LLVMVerifyModule(self.module, action.into(), &mut err);
             if result != 0 {
                 println!("Error: {}", std::ffi::CStr::from_ptr(err).to_str().unwrap());
                 false
@@ -210,8 +213,14 @@ impl Module {
             }
         }
     }
-    
-    pub fn add_alias(&self, ty: TypeEnum, aliasee: ValueEnum, address_space: u32, name: &str) -> ValueEnum {
+
+    pub fn add_alias(
+        &self,
+        ty: TypeEnum,
+        aliasee: ValueEnum,
+        address_space: u32,
+        name: &str,
+    ) -> ValueEnum {
         let name = to_c_str(name);
         let value = unsafe {
             LLVMAddAlias2(
@@ -219,17 +228,15 @@ impl Module {
                 ty.as_raw().as_llvm_ref(),
                 address_space,
                 aliasee.as_llvm_ref(),
-                name.as_ptr()
+                name.as_ptr(),
             )
         };
         ValueEnum::from(value)
     }
-    
+
     pub fn add_global(&self, ty: TypeEnum, name: &str) -> ValueEnum {
         let name = to_c_str(name);
-        let value = unsafe {
-            LLVMAddGlobal(self.module, ty.as_raw().as_llvm_ref(), name.as_ptr())
-        };
+        let value = unsafe { LLVMAddGlobal(self.module, ty.as_raw().as_llvm_ref(), name.as_ptr()) };
         ValueEnum::from(value)
     }
 
@@ -253,7 +260,12 @@ impl Module {
     pub fn get_source_file(&self) -> Option<String> {
         let mut length = 0;
         let c_str = ptr_to_option(unsafe { LLVMGetSourceFileName(self.module, &mut length) })?;
-        Some(unsafe { std::ffi::CStr::from_ptr(c_str).to_str().unwrap().to_string() })
+        Some(unsafe {
+            std::ffi::CStr::from_ptr(c_str)
+                .to_str()
+                .unwrap()
+                .to_string()
+        })
     }
 
     pub fn set_source_file(&self, file: &str) {
@@ -263,14 +275,17 @@ impl Module {
             LLVMSetSourceFileName(self.module, file.as_ptr(), length);
         }
     }
-    
+
     pub fn get_data_layout_str(&self) -> String {
         unsafe {
             let c_str = LLVMGetDataLayoutStr(self.module);
-            std::ffi::CStr::from_ptr(c_str).to_str().unwrap().to_string()
+            std::ffi::CStr::from_ptr(c_str)
+                .to_str()
+                .unwrap()
+                .to_string()
         }
     }
-    
+
     pub fn set_data_layout_str(&self, data_layout: &str) {
         let data_layout = to_c_str(data_layout);
         unsafe {
@@ -281,7 +296,10 @@ impl Module {
     pub fn get_target_triple(&self) -> String {
         unsafe {
             let c_str = LLVMGetTarget(self.module);
-            std::ffi::CStr::from_ptr(c_str).to_str().unwrap().to_string()
+            std::ffi::CStr::from_ptr(c_str)
+                .to_str()
+                .unwrap()
+                .to_string()
         }
     }
 
@@ -302,8 +320,7 @@ impl Module {
         let length = key.len();
         let key = to_c_str(key);
         let meta = unsafe { LLVMGetModuleFlag(self.module, key.as_ptr(), length) };
-        ptr_to_option(meta)
-            .map(Metadata::new)
+        ptr_to_option(meta).map(Metadata::new)
     }
 
     pub fn add_flag(&self, key: &str, behavior: ModuleFlagBehavior, meta: Metadata) {
@@ -322,22 +339,19 @@ impl Module {
 
     pub fn get_first_named_metadata(&self) -> Option<NamedMetadata> {
         let meta = unsafe { LLVMGetFirstNamedMetadata(self.module) };
-        ptr_to_option(meta)
-            .map(NamedMetadata::new)
+        ptr_to_option(meta).map(NamedMetadata::new)
     }
 
     pub fn get_last_named_metadata(&self) -> Option<NamedMetadata> {
         let meta = unsafe { LLVMGetLastNamedMetadata(self.module) };
-        ptr_to_option(meta)
-            .map(NamedMetadata::new)
+        ptr_to_option(meta).map(NamedMetadata::new)
     }
 
     pub fn get_named_metadata(&self, name: &str) -> Option<NamedMetadata> {
         let length = name.len();
         let name = to_c_str(name);
         let meta = unsafe { LLVMGetNamedMetadata(self.module, name.as_ptr(), length) };
-        ptr_to_option(meta)
-            .map(NamedMetadata::new)
+        ptr_to_option(meta).map(NamedMetadata::new)
     }
 
     pub fn get_or_insert_named_metadata(&self, name: &str) -> NamedMetadata {
@@ -367,55 +381,26 @@ impl Module {
     }
 
     pub fn get_first_function(&self) -> Option<FunctionValue> {
-        let val = unsafe {
-            LLVMGetFirstFunction(self.module)
-        };
-        
-        ptr_to_option(val)
-            .map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
+        let val = unsafe { LLVMGetFirstFunction(self.module) };
+
+        ptr_to_option(val).map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
     }
-    
+
     pub fn get_last_function(&self) -> Option<FunctionValue> {
-        let val = unsafe {
-            LLVMGetLastFunction(self.module)
-        };
-        
-        ptr_to_option(val)
-            .map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
+        let val = unsafe { LLVMGetLastFunction(self.module) };
+
+        ptr_to_option(val).map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
     }
-    
+
     pub fn get_next_function(&self, function: FunctionValue) -> Option<FunctionValue> {
-        let val = unsafe {
-            LLVMGetNextFunction(function
-                .as_raw()
-                .as_llvm_ref()
-            )
-        };
-        
-        ptr_to_option(val)
-            .map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
+        let val = unsafe { LLVMGetNextFunction(function.as_raw().as_llvm_ref()) };
+
+        ptr_to_option(val).map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
     }
-    
+
     pub fn get_previous_function(&self, function: FunctionValue) -> Option<FunctionValue> {
-        let val = unsafe {
-            LLVMGetPreviousFunction(function
-                .as_raw()
-                .as_llvm_ref()
-            )
-        };
-        
-        ptr_to_option(val)
-            .map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
-    }
+        let val = unsafe { LLVMGetPreviousFunction(function.as_raw().as_llvm_ref()) };
 
-
-}
-
-impl Clone for Module {
-    fn clone(&self) -> Self {
-        Self {
-            context: self.context,
-            module: unsafe { LLVMCloneModule(self.module) },
-        }
+        ptr_to_option(val).map(|x| unsafe { FunctionValue::new_llvm_ref(x, None) })
     }
 }

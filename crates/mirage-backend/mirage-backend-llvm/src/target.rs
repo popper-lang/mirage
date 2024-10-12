@@ -1,11 +1,11 @@
-use std::ffi::{CStr, CString};
-use std::io::Write;
-use llvm_sys::prelude::LLVMPassManagerRef;
-use llvm_sys::target::*;
-use llvm_sys::target_machine::*;
 use crate::module::Module;
 use crate::pass_manager::PassManager;
 use crate::util::to_c_str;
+use llvm_sys::prelude::LLVMPassManagerRef;
+use llvm_sys::target::*;
+use llvm_sys::target_machine::*;
+use std::ffi::{CStr, CString};
+use std::io::Write;
 
 #[derive(Debug, Copy, Clone)]
 pub enum OptimizationLevel {
@@ -45,7 +45,7 @@ pub enum RelocMode {
     DynamicNoPic,
     ROPI,
     RWPI,
-    ROPI_RWPI
+    ROPI_RWPI,
 }
 
 impl From<LLVMRelocMode> for RelocMode {
@@ -57,21 +57,21 @@ impl From<LLVMRelocMode> for RelocMode {
             LLVMRelocMode::LLVMRelocDynamicNoPic => RelocMode::DynamicNoPic,
             LLVMRelocMode::LLVMRelocROPI => RelocMode::ROPI,
             LLVMRelocMode::LLVMRelocRWPI => RelocMode::RWPI,
-            LLVMRelocMode::LLVMRelocROPI_RWPI => RelocMode::ROPI_RWPI
+            LLVMRelocMode::LLVMRelocROPI_RWPI => RelocMode::ROPI_RWPI,
         }
     }
 }
 
 impl Into<LLVMRelocMode> for RelocMode {
     fn into(self) -> LLVMRelocMode {
-        match self { 
+        match self {
             RelocMode::Default => LLVMRelocMode::LLVMRelocDefault,
             RelocMode::Static => LLVMRelocMode::LLVMRelocStatic,
             RelocMode::PIC => LLVMRelocMode::LLVMRelocPIC,
             RelocMode::DynamicNoPic => LLVMRelocMode::LLVMRelocDynamicNoPic,
             RelocMode::ROPI => LLVMRelocMode::LLVMRelocROPI,
             RelocMode::RWPI => LLVMRelocMode::LLVMRelocRWPI,
-            RelocMode::ROPI_RWPI => LLVMRelocMode::LLVMRelocROPI_RWPI
+            RelocMode::ROPI_RWPI => LLVMRelocMode::LLVMRelocROPI_RWPI,
         }
     }
 }
@@ -84,7 +84,7 @@ pub enum CodeModel {
     Small,
     Kernel,
     Medium,
-    Large
+    Large,
 }
 
 impl From<LLVMCodeModel> for CodeModel {
@@ -96,7 +96,7 @@ impl From<LLVMCodeModel> for CodeModel {
             LLVMCodeModel::LLVMCodeModelSmall => CodeModel::Small,
             LLVMCodeModel::LLVMCodeModelKernel => CodeModel::Kernel,
             LLVMCodeModel::LLVMCodeModelMedium => CodeModel::Medium,
-            LLVMCodeModel::LLVMCodeModelLarge => CodeModel::Large
+            LLVMCodeModel::LLVMCodeModelLarge => CodeModel::Large,
         }
     }
 }
@@ -110,7 +110,7 @@ impl Into<LLVMCodeModel> for CodeModel {
             CodeModel::Small => LLVMCodeModel::LLVMCodeModelSmall,
             CodeModel::Kernel => LLVMCodeModel::LLVMCodeModelKernel,
             CodeModel::Medium => LLVMCodeModel::LLVMCodeModelMedium,
-            CodeModel::Large => LLVMCodeModel::LLVMCodeModelLarge
+            CodeModel::Large => LLVMCodeModel::LLVMCodeModelLarge,
         }
     }
 }
@@ -161,30 +161,29 @@ impl Target {
             CStr::from_ptr(s as *const _).to_str().unwrap().to_string()
         }
     }
-    
+
     pub fn create_from_default_target_triple() -> Self {
         unsafe {
             let triple = Self::get_default_target_triple();
             let triple = to_c_str(&triple);
             let mut target = std::mem::MaybeUninit::uninit();
             let mut err_msg = std::mem::MaybeUninit::uninit();
-            let res = LLVMGetTargetFromTriple(triple.as_ptr(), target.as_mut_ptr(), err_msg.as_mut_ptr());
-            
+            let res =
+                LLVMGetTargetFromTriple(triple.as_ptr(), target.as_mut_ptr(), err_msg.as_mut_ptr());
+
             if res != 1 {
                 let err_msg = err_msg.assume_init();
                 let err_msg = CStr::from_ptr(err_msg as *const _).to_str().unwrap();
-                
+
                 panic!("A error happnened: {}", err_msg);
             }
-            
+
             let target = target.assume_init();
             Target::new(target)
         }
     }
     pub fn new(target: LLVMTargetRef) -> Self {
-        Self {
-            target,
-        }
+        Self { target }
     }
 
     pub fn get_target_name(&self) -> String {
@@ -193,15 +192,16 @@ impl Target {
         name.to_string()
     }
 
-    pub fn create_target_machine(&self,
-                                 triple: &str,
-                                 cpu: &str,
-                                 features: &str,
-                                 opt_level: OptimizationLevel,
-                                 reloc_mode: RelocMode,
-                                 code_model: CodeModel) -> TargetMachine {
-
-        let triple =  CString::new(triple).unwrap();
+    pub fn create_target_machine(
+        &self,
+        triple: &str,
+        cpu: &str,
+        features: &str,
+        opt_level: OptimizationLevel,
+        reloc_mode: RelocMode,
+        code_model: CodeModel,
+    ) -> TargetMachine {
+        let triple = CString::new(triple).unwrap();
         let cpu = CString::new(cpu).unwrap();
         let features = CString::new(features).unwrap();
         let target_machine = unsafe {
@@ -212,12 +212,11 @@ impl Target {
                 features.as_ptr(),
                 opt_level.into(),
                 reloc_mode.into(),
-                code_model.into()
+                code_model.into(),
             )
         };
         TargetMachine::new(target_machine)
     }
-
 }
 #[derive(Debug, Copy, Clone)]
 pub struct TargetMachine {
@@ -226,9 +225,7 @@ pub struct TargetMachine {
 
 impl TargetMachine {
     pub fn new(target_machine: LLVMTargetMachineRef) -> Self {
-        Self {
-            target_machine,
-        }
+        Self { target_machine }
     }
 
     pub fn get_target_machine_ref(&self) -> LLVMTargetMachineRef {
@@ -239,7 +236,6 @@ impl TargetMachine {
         let target = unsafe { LLVMGetTargetMachineTarget(self.target_machine) };
         Target::new(target)
     }
-
 
     pub fn get_target_triple(&self) -> String {
         let triple = unsafe { LLVMGetTargetMachineTriple(self.target_machine) };
@@ -269,14 +265,19 @@ impl TargetMachine {
         let c_str = dest.as_mut_ptr();
         unsafe {
             let mut err = std::mem::MaybeUninit::uninit();
-            let res = LLVMTargetMachineEmitToFile(self.target_machine, module.module, c_str as *mut _, file_type.into(), err.as_mut_ptr());
+            let res = LLVMTargetMachineEmitToFile(
+                self.target_machine,
+                module.module,
+                c_str as *mut _,
+                file_type.into(),
+                err.as_mut_ptr(),
+            );
             if res == 0 {
                 let err = err.assume_init();
                 let s = CStr::from_ptr(err as *const _).to_str().unwrap();
                 panic!("Failed to emit file: {}", s);
             }
         };
-
     }
 }
 
@@ -287,8 +288,7 @@ pub struct TargetData {
 
 impl TargetData {
     pub fn new(target_data: LLVMTargetDataRef) -> Self {
-        Self {
-            target_data,
-        }
+        Self { target_data }
     }
 }
+

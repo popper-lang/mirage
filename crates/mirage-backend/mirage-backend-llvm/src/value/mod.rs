@@ -1,7 +1,11 @@
-use std::ptr::NonNull;
-use llvm_sys::core::{LLVMDumpValue, LLVMGetValueName2 as LLVMGetValueName, LLVMPrintValueToString, LLVMReplaceAllUsesWith, LLVMSetValueName2 as LLVMSetValueName, LLVMTypeOf, LLVMInstructionEraseFromParent, LLVMValueAsBasicBlock};
+use llvm_sys::core::{
+    LLVMDumpValue, LLVMGetAlignment, LLVMGetValueName2 as LLVMGetValueName,
+    LLVMInstructionEraseFromParent, LLVMPrintValueToString, LLVMReplaceAllUsesWith,
+    LLVMSetAlignment, LLVMSetValueName2 as LLVMSetValueName, LLVMTypeOf, LLVMValueAsBasicBlock,
+};
+use llvm_sys::prelude::LLVMValueRef;
 use llvm_sys::LLVMValue;
-use llvm_sys::prelude::{LLVMValueRef};
+use std::ptr::NonNull;
 
 trait UnsignedInt: Sized + Into<u32> {}
 
@@ -35,12 +39,7 @@ use crate::value::array_value::ArrayValue;
 
 pub trait Value {
     fn get_type(&self) -> TypeEnum {
-        unsafe {
-            self
-                .as_raw()
-                .get_type()
-                .as_type_enum()
-        }
+        unsafe { self.as_raw().get_type().as_type_enum() }
     }
 
     fn as_raw(&self) -> RawValue;
@@ -50,13 +49,27 @@ pub trait Value {
     fn is_undef(&self) -> bool;
     fn set_name(&self, name: &str) {
         let name = std::ffi::CString::new(name).unwrap();
-        unsafe { LLVMSetValueName(self.as_raw().as_llvm_ref(), name.as_ptr(), name.as_bytes().len()) }
+        unsafe {
+            LLVMSetValueName(
+                self.as_raw().as_llvm_ref(),
+                name.as_ptr(),
+                name.as_bytes().len(),
+            )
+        }
     }
     fn get_name(&self) -> Option<String> {
         self.as_raw().get_named_value()
     }
     fn dump(&self) {
         unsafe { LLVMDumpValue(self.as_raw().as_llvm_ref()) }
+    }
+
+    fn get_alignment(&self) -> u32 {
+        self.as_raw().get_alignment()
+    }
+
+    fn set_alignment(&self, align: u32) {
+        self.as_raw().set_alignment(align)
     }
 }
 
@@ -92,7 +105,6 @@ impl ValueEnum {
         }
     }
 
-
     pub fn print_to_string(&self) -> String {
         self.as_raw().print_to_string()
     }
@@ -111,17 +123,23 @@ impl ValueEnum {
     pub fn into_ptr_value(self) -> pointer_value::PointerValue {
         match self {
             ValueEnum::PointerValue(ptr_value) => ptr_value,
-            e => panic!("Not a pointer value: {:?}", e.get_type().as_raw().get_type_kind()),
+            e => panic!(
+                "Not a pointer value: {:?}",
+                e.get_type().as_raw().get_type_kind()
+            ),
         }
     }
-    
+
     pub fn into_struct_value(self) -> struct_value::StructValue {
         match self {
             ValueEnum::StructValue(struct_value) => struct_value,
-            e => panic!("Not a struct value: {:?}", e.get_type().as_raw().get_type_kind()),
+            e => panic!(
+                "Not a struct value: {:?}",
+                e.get_type().as_raw().get_type_kind()
+            ),
         }
     }
-    
+
     pub fn into_float_value(self) -> float_value::FloatValue {
         match self {
             ValueEnum::FloatValue(float_value) => float_value,
@@ -142,13 +160,12 @@ impl ValueEnum {
 
     pub fn erase_from_parent(&self) {
         unsafe { LLVMInstructionEraseFromParent(self.as_llvm_ref()) }
-
     }
-    
+
     pub fn is_ptr(&self) -> bool {
         matches!(self.get_type(), TypeEnum::PointerType(_))
     }
-    
+
     pub fn is_struct(&self) -> bool {
         matches!(self.get_type(), TypeEnum::StructType(_))
     }
@@ -161,7 +178,6 @@ impl ValueEnum {
             ValueEnum::ArrayValue(array_value) => array_value.as_raw(),
             ValueEnum::PointerValue(pointer_value) => pointer_value.as_raw(),
             ValueEnum::StructValue(struct_value) => struct_value.as_raw(),
-
         }
     }
 }
@@ -172,34 +188,53 @@ impl From<LLVMValueRef> for ValueEnum {
             let value_type = LLVMTypeOf(value);
             let value_type_enum = value_type.into();
             match value_type_enum {
-                TypeEnum::IntType(_) => ValueEnum::IntValue(
-                    int_value::IntValue::new_llvm_ref(value)
-                ),
+                TypeEnum::IntType(_) => {
+                    ValueEnum::IntValue(int_value::IntValue::new_llvm_ref(value))
+                }
                 TypeEnum::FloatType(_) => {
                     ValueEnum::FloatValue(float_value::FloatValue::new_llvm_ref(value))
                 }
-                TypeEnum::FunctionType(_) => {
-                    ValueEnum::FunctionValue(function_value::FunctionValue::new_llvm_ref(value, None))
-                }
+                TypeEnum::FunctionType(_) => ValueEnum::FunctionValue(
+                    function_value::FunctionValue::new_llvm_ref(value, None),
+                ),
                 TypeEnum::ArrayType(_) => ValueEnum::ArrayValue(ArrayValue::new_llvm_ref(value)),
                 TypeEnum::PointerType(_) => {
                     ValueEnum::PointerValue(pointer_value::PointerValue::new_llvm_ref(value))
-                },
+                }
                 TypeEnum::StructType(_) => {
                     ValueEnum::StructValue(struct_value::StructValue::new_llvm_ref(value))
                 }
                 _ => panic!("Unknown type"),
             }
-
         }
     }
 }
 
-
-
 impl From<ValueEnum> for LLVMValueRef {
     fn from(value: ValueEnum) -> LLVMValueRef {
         value.as_raw().as_llvm_ref()
+    }
+}
+
+impl Value for ValueEnum {
+    fn as_raw(&self) -> RawValue {
+        ValueEnum::as_raw(self)
+    }
+
+    fn is_null_or_undef(&self) -> bool {
+        false
+    }
+
+    fn is_const(&self) -> bool {
+        false
+    }
+
+    fn is_null(&self) -> bool {
+        false
+    }
+
+    fn is_undef(&self) -> bool {
+        false
     }
 }
 
@@ -276,21 +311,21 @@ pub fn to_value<T: ToValue>(t: T) -> ValueEnum {
     t.to_value()
 }
 
-
 pub(crate) trait MathValue: Value {}
-
 
 impl MathValue for int_value::IntValue {}
 impl MathValue for float_value::FloatValue {}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RawValue {
-    raw: NonNull<LLVMValue>
+    raw: NonNull<LLVMValue>,
 }
 
 impl RawValue {
     pub fn new(raw: LLVMValueRef) -> Self {
-        RawValue { raw: NonNull::new(raw).expect("The raw value is null") }
+        RawValue {
+            raw: NonNull::new(raw).expect("The raw value is null"),
+        }
     }
 
     pub fn as_llvm_ref(&self) -> LLVMValueRef {
@@ -301,7 +336,6 @@ impl RawValue {
         unsafe { LLVMDumpValue(self.as_llvm_ref()) }
     }
 
-
     pub fn erase_from_parent(&self) {
         unsafe { LLVMInstructionEraseFromParent(self.as_llvm_ref()) }
     }
@@ -309,9 +343,7 @@ impl RawValue {
     pub fn print_to_string(&self) -> String {
         unsafe {
             let llvm_str = LLVMPrintValueToString(self.as_llvm_ref());
-            let str_slice = std::ffi::CStr::from_ptr(llvm_str)
-                .to_str()
-                .unwrap();
+            let str_slice = std::ffi::CStr::from_ptr(llvm_str).to_str().unwrap();
             str_slice.to_owned()
         }
     }
@@ -333,7 +365,6 @@ impl RawValue {
         }
     }
 
-
     pub fn get_named_value(&self) -> Option<String> {
         unsafe {
             let mut name_length = 0;
@@ -353,7 +384,7 @@ impl RawValue {
             LLVMSetValueName(self.as_llvm_ref(), c_str.as_ptr(), length);
         }
     }
-    
+
     pub fn try_as_basic_block(&self) -> Option<crate::basic_block::BasicBlock> {
         unsafe {
             let value = LLVMValueAsBasicBlock(self.as_llvm_ref());
@@ -364,19 +395,24 @@ impl RawValue {
             }
         }
     }
-    
-    
+
     /// # Safety
     /// This function is unsafe because the value may not be a valid debug location
     pub unsafe fn as_debug_loc(&self) -> crate::debug::DebugLoc {
         crate::debug::DebugLoc::new(*self)
     }
-    
+
     /// # Safety
     /// This function is unsafe because the value may not be a valid inline asm
     pub unsafe fn as_inline_asm(&self) -> crate::asm::InlineAsm {
         crate::asm::InlineAsm::new(self.as_llvm_ref())
     }
 
+    pub fn get_alignment(&self) -> u32 {
+        unsafe { LLVMGetAlignment(self.as_llvm_ref()) }
+    }
 
+    pub fn set_alignment(&self, align: u32) {
+        unsafe { LLVMSetAlignment(self.as_llvm_ref(), align) }
+    }
 }

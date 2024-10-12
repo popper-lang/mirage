@@ -378,6 +378,17 @@ impl RegisterValue {
     pub fn contains_flag(&self, flag: &Flag) -> bool {
         self.flags.contains(flag)
     }
+
+    pub fn remove_flag(&mut self, flag: &Flag) {
+        self.flags = Flags::new(
+            self.flags
+                .inner
+                .clone()
+                .into_iter()
+                .filter(|x| x != flag)
+                .collect(),
+        )
+    }
 }
 
 impl PartialEq for RegisterValue {

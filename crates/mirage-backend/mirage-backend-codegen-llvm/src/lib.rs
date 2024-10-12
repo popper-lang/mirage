@@ -52,6 +52,7 @@ pub struct Compiler {
     no_store: bool,
     debug: bool,
     no_load: bool,
+    is_argument: bool,
 }
 
 impl Compiler {
@@ -101,10 +102,31 @@ impl Compiler {
         }
     }
 
+    fn argument_type(&self, ty: TypeEnum) -> TypeEnum {
+        if let TypeEnum::StructType(s) = ty {
+            self.context.i64_type().to_type_enum()
+        } else {
+            ty
+        }
+    }
+
+    fn argument_value(self, val: ValueEnum, mirage_value: Value) -> ValueEnum {
+        if let MirageTypeEnum::Struct(_) = mirage_value.get_type() {
+            // <ValueEnum as mirage_backend_llvm::value::Value>::set_alignment(&val, 4);
+            self.builder.build_load(
+                self.context.i64_type().to_type_enum(),
+                val.into_ptr_value(),
+                "",
+            )
+        } else {
+            val
+        }
+    }
+
     /// Create a new compiler
     pub fn new(stmts: Vec<Statement>, debug: bool) -> CompilerResult<Self> {
         let context = Context::create();
-        if stmts.len() == 0 {
+        if stmts.is_empty() {
             return Err(CompilerError::ModuleDeclMissing);
         }
 
@@ -128,6 +150,7 @@ impl Compiler {
             no_store: false,
             debug,
             no_load: false,
+            is_argument: false,
         })
     }
 
@@ -194,7 +217,7 @@ impl Compiler {
             .get_type()
             .get_args()
             .iter()
-            .map(|ty| self.mirage_ty_to_llvm_ty(ty.clone()))
+            .map(|ty| self.argument_type(self.mirage_ty_to_llvm_ty(ty.clone())))
             .collect();
 
         let ret_ty = self.mirage_ty_to_llvm_ty(func.get_type().get_ret().clone());
@@ -202,18 +225,31 @@ impl Compiler {
         let fn_ty = ret_ty.func(args_ty, func.get_type().is_var_arg());
         let fn_value = self.module.add_function(func.get_name(), fn_ty);
 
-        for (i, arg) in fn_value.get_all_params().iter().enumerate() {
-            let reg = RegisterValue::new(
-                i,
-                RegisterType::Argument,
-                func.get_type().get_args()[i].clone(),
-            );
-            self.env.insert(reg, arg.clone());
-        }
         self.fn_env.insert(func.get_name().clone(), fn_value);
+        let mut is_first = true;
         for label in func.get_labels() {
             let bb = self.context.append_basic_block(&label.name, fn_value);
             self.builder.position_at_end(bb);
+            if is_first {
+                for (i, (llvm_arg, mirage_arg)) in fn_value
+                    .get_all_params()
+                    .iter()
+                    .zip(func.get_args())
+                    .enumerate()
+                {
+                    let reg = RegisterValue::new(
+                        i,
+                        RegisterType::Argument,
+                        func.get_type().get_args()[i].clone(),
+                    );
+                    let ptr = self
+                        .builder
+                        .build_alloca(self.mirage_ty_to_llvm_ty(mirage_arg.get_type()), "");
+                    self.builder.build_store(*llvm_arg, ptr);
+                    self.env.insert(reg, ptr.to_value_enum());
+                }
+                is_first = false
+            }
             for stmt in &label.body {
                 self.compile_instr(bb, stmt);
             }
@@ -228,7 +264,7 @@ impl Compiler {
         match instr {
             LabelBodyInstr::Command(c) => self.compile_command(c.clone()),
             LabelBodyInstr::Assign(r, value) => {
-                let val = self.compile_instr(bb, value).unwrap();
+                let val = self.compile_instr(bb, value)?;
                 if self.no_store {
                     self.no_store = false;
                     self.env.insert(r.clone(), val);
@@ -242,8 +278,14 @@ impl Compiler {
                 None
             }
             LabelBodyInstr::Call(f, args) => {
-                let fn_value = self.fn_env.get(f).unwrap().clone();
-                let args: Vec<_> = args.iter().map(|arg| self.compile_value(arg)).collect();
+                let fn_value = *self.fn_env.get(f).unwrap();
+                let args: Vec<_> = args
+                    .iter()
+                    .map(|arg| {
+                        self.clone()
+                            .argument_value(self.compile_value(arg), arg.clone())
+                    })
+                    .collect();
                 self.builder.build_call(fn_value, &args, "")
             }
             _ => None,
@@ -253,7 +295,7 @@ impl Compiler {
     fn compile_command(&mut self, cmd: Command) -> Option<ValueEnum> {
         match cmd {
             Command::New(s, args) => {
-                let struct_ty = self.struct_env.get(&s).unwrap().clone();
+                let struct_ty = *self.struct_env.get(&s).unwrap();
                 let ptr = self.builder.build_alloca(struct_ty.to_type_enum(), "");
 
                 for (i, arg) in args.iter().enumerate() {
@@ -506,12 +548,16 @@ impl Compiler {
 
     fn compile_register_value(&mut self, val: RegisterValue) -> ValueEnum {
         let ty = self.mirage_ty_to_llvm_ty(val.get_type());
-        let ptr = self.env.get(&val).unwrap();
-        if val.register_type == RegisterType::Argument {
-            return *ptr;
-        }
-        let ptr = ptr.into_ptr_value();
-        if val.ty.is_string() || val.contains_flag(&Flag::not_loadable()) || self.no_load {
+        let ptr = self
+            .env
+            .get(self.env.keys().find(|x| x == &&val).unwrap())
+            .unwrap()
+            .into_ptr_value();
+        if val.ty.is_string()
+            || val.contains_flag(&Flag::not_loadable())
+            || self.no_load
+            || matches!(val.ty, MirageTypeEnum::Struct(_))
+        {
             return ptr.to_value_enum();
         }
         self.builder.build_load(ty, ptr, "")

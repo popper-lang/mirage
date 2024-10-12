@@ -1,5 +1,5 @@
-use llvm_sys::prelude::LLVMValueRef;
 use crate::value::{RawValue, Value};
+use llvm_sys::prelude::LLVMValueRef;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct StructValue {
@@ -10,9 +10,11 @@ impl StructValue {
     pub fn new(struct_value: RawValue) -> Self {
         Self { struct_value }
     }
-    
+
     pub fn new_llvm_ref(struct_value: LLVMValueRef) -> Self {
-        Self { struct_value: RawValue::new(struct_value) }
+        Self {
+            struct_value: RawValue::new(struct_value),
+        }
     }
 
     pub fn as_raw(&self) -> RawValue {
@@ -41,3 +43,4 @@ impl Value for StructValue {
         false
     }
 }
+

@@ -311,6 +311,21 @@ impl BasicBlockBuilder {
         self.check_return()?;
         let args = args
             .iter()
+            .cloned()
+            /*            .map(|x| {
+                            if let MirageValueEnum::Register(e) = x.clone() {
+                                if let MirageTypeEnum::Struct(_) = e.get_type() {
+                                    let mut e = e;
+                                    e.remove_flag(&Flag::not_loadable());
+                                    MirageValueEnum::Register(e.clone())
+                                } else {
+                                    x
+                                }
+                            } else {
+                                x
+                            }
+                        })
+            */
             .map(|x| Value::ConstValue(MirageObject::from(x.clone())))
             .collect::<Vec<Value>>();
         let func = self
